@@ -1,69 +1,99 @@
 # API Reference: Core Models & Interfaces
 
-The `polyrag.core` module defines the core domain entities, data transfer objects (DTOs), and abstract interface specifications.
+The `polyrag.core` module defines the core domain entities, data transfer objects, abstract ports, and exceptions.
 
 ---
 
-## Data Models (`polyrag.core.models`)
+## 1. Domain Models (`polyrag.core.models`)
 
 ### `Document`
-Represents an input source document before chunking:
-- `source: str`: Identifier or file name of the document.
-- `text: str`: Raw content of the document.
-- `metadata: dict[str, Any]`: Optional key-value metadata.
-- `doc_id: str | None`: Optional unique document identifier.
+Represents an unsegmented source document:
+```python
+@dataclass
+class Document:
+    source: str
+    text: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    doc_id: str | None = None
+```
 
 ### `Chunk`
-A segmented passage extracted from a document:
-- `source: str`: Source document name.
-- `chunk_id: int | str`: Sequential or unique chunk identifier.
-- `text: str`: Segmented passage text.
-- `metadata: dict[str, Any]`: Preserved and chunk-specific metadata.
-- `identifier: str` *(property)*: Returns `"{source}#{chunk_id}"` (e.g. `"rfc1035.txt#42"`).
-- `to_dict() -> dict[str, Any]`: Serializes chunk into a dictionary.
+Represents an extracted passage from a document:
+```python
+@dataclass
+class Chunk:
+    source: str
+    chunk_id: int | str
+    text: str
+    metadata: dict[str, Any] = field(default_factory=dict)
+    chunk_uuid: str | None = None
+
+    @property
+    def identifier(self) -> str:
+        """Returns '{source}#{chunk_id}' (e.g. 'rfc1035.txt#42')."""
+```
 
 ### `SearchResult`
 Represents a scored vector match from similarity search:
-- `score: float`: Similarity score (higher = closer, typically cosine similarity `[-1, 1]`).
-- `distance: float`: Vector distance.
-- `document: dict[str, Any]`: The matched chunk record.
-- `identifier: str` *(property)*: Canonical reference string.
+```python
+@dataclass
+class SearchResult:
+    score: float           # Similarity score (e.g. Cosine Similarity [-1, 1])
+    distance: float        # Distance metric (e.g. Euclidean / L2)
+    document: dict[str, Any]
+```
 
 ### `RAGResponse`
-Standard response object returned by RAG pipelines:
-- `question: str`: The original user query.
-- `answer: str`: The synthesized, grounded answer.
-- `context: str`: Formatted context provided to the LLM.
-- `sources: list[dict[str, Any]]`: List of cited document chunks.
-- `confidence: float`: Estimated answer confidence `[0.0, 1.0]`.
-- `reasoning_summary: str`: Brief summary of agent decisions.
-- `agent_log: list[dict[str, Any]]`: Granular action-by-action execution records.
-- `took_ms: int`: Total elapsed time in milliseconds.
-- `llm_calls: int`: Number of LLM API completions invoked.
-- *Supports dictionary indexing*: `response["answer"]` works identically to `response.answer`.
+Standard output object returned by `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, and `AgenticRAG`:
+```python
+@dataclass
+class RAGResponse:
+    question: str
+    answer: str
+    context: str = ""
+    sources: list[dict[str, Any]] = field(default_factory=list)
+    took_ms: int = 0
+    confidence: float = 1.0
+    reasoning_summary: str = ""
+    agent_log: list[dict[str, Any]] = field(default_factory=list)
+    llm_calls: int = 1
+```
+*Note: Supports both attribute access (`response.answer`) and dictionary indexing (`response["answer"]`).*
 
 ### `AgentStep`
-A single step in a ReAct reasoning trajectory:
-- `step_num: int`: Index of the step.
-- `thought: str`: Internal reasoning about what information is missing.
-- `action: str`: Tool name chosen.
-- `action_input: dict[str, Any]`: Arguments passed to the tool.
-- `observation: str`: Tool output fed back into the reasoning loop.
-- `chunks_retrieved: int`: Count of newly discovered chunks.
-- `took_ms: int`: Latency for this specific step.
+A single reasoning step in a `ReActAgent` trajectory:
+```python
+@dataclass
+class AgentStep:
+    step_num: int
+    thought: str
+    action: str
+    action_input: dict[str, Any] = field(default_factory=dict)
+    observation: str = ""
+    chunks_retrieved: int = 0
+    took_ms: int = 0
+```
 
 ### `AgentResponse`
-Full output returned by `ReActAgent`:
-- `question: str`: Original query.
-- `answer: str`: Final synthesis with citations.
-- `trajectory: list[AgentStep]`: Full chronological reasoning path.
-- `sources: list[dict[str, Any]]`: Deduplicated cited references.
-- `confidence: float`: Answer confidence.
-- `took_ms: int`: Total latency.
+Comprehensive output returned by `ReActAgent`:
+```python
+@dataclass
+class AgentResponse:
+    question: str
+    answer: str
+    sources: list[dict[str, Any]]
+    retrieved_evidence: list[dict[str, Any]]
+    trajectory: list[AgentStep]
+    reasoning_summary: str
+    confidence: float
+    total_steps: int
+    took_ms: int
+    llm_calls: int
+```
 
 ---
 
-## Abstract Interfaces (`polyrag.core.interfaces`)
+## 2. Abstract Interfaces (`polyrag.core.interfaces`)
 
 ### `BaseChunker`
 ```python
@@ -124,10 +154,10 @@ class BaseLLMClient(ABC):
 
 ---
 
-## Exceptions (`polyrag.exceptions`)
+## 3. Exceptions (`polyrag.exceptions`)
 
-All custom exceptions inherit from `RAGException`:
-- `ConfigurationError`: Raised when environment variables or adapter settings are invalid.
-- `IngestionError`: Raised during document reading, parsing, or chunking failures.
-- `RetrievalError`: Raised during vector database search or similarity computation issues.
-- `LLMGenerationError`: Raised on API timeout, quota exhaustion, or malformed JSON parsing.
+- `RAGException`: Root base class for all library exceptions.
+- `ConfigurationError`: Missing environment variables, invalid settings, or unresolvable DI container interfaces.
+- `IngestionError`: Document reading, parsing, or chunking failures.
+- `RetrievalError`: Vector database search or similarity computation failures.
+- `LLMGenerationError`: LLM API network timeouts, quota limits, or invalid JSON syntax parsing.
