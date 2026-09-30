@@ -297,8 +297,12 @@ def test_rag_service_and_agentic_facade():
     assert naive_res.answer != ""
 
     # Upgrade to Agentic
-    agentic_service = service.as_agentic(max_rounds=2)
+    agentic_service = service.create_agentic_rag(max_rounds=2)
     assert isinstance(agentic_service, AgenticRAGService)
+
+    # Verify alias works
+    alias_service = service.as_agentic(max_rounds=2)
+    assert isinstance(alias_service, AgenticRAGService)
 
     agentic_res = agentic_service.query("What protocol is in RFC 9000?")
     assert isinstance(agentic_res, RAGResponse)

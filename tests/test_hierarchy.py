@@ -128,8 +128,8 @@ def test_advanced_rag_pipeline():
     assert "Expanded" in response.reasoning_summary
 
 
-def test_rag_service_as_advanced():
-    """Verify RAGService.as_advanced() converts into an AdvancedRAG instance."""
+def test_rag_service_create_advanced_rag():
+    """Verify RAGService.create_advanced_rag() produces an AdvancedRAG instance."""
     emb = MockEmbedding()
     vdb = InMemoryVectorStore()
     llm = MockLLM()
@@ -142,9 +142,13 @@ def test_rag_service_as_advanced():
 
     service.ingest("RFC 793 Transmission Control Protocol", source="rfc793.txt")
 
-    advanced = service.as_advanced(num_expanded_queries=2)
+    advanced = service.create_advanced_rag(num_expanded_queries=2)
     assert isinstance(advanced, AdvancedRAG)
     assert isinstance(advanced, BaseRAG)
+
+    # Also test backward-compatibility alias
+    alias_advanced = service.as_advanced(num_expanded_queries=2)
+    assert isinstance(alias_advanced, AdvancedRAG)
 
     res = advanced.query("What is TCP?", top_k=1)
     assert isinstance(res, RAGResponse)

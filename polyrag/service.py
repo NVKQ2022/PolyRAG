@@ -28,7 +28,7 @@ class RAGService:
     - Zero-configuration `.from_env()` or `.create()` initialization
     - Full backward compatibility with existing RAGService signatures
     - Ingest strings, files, or entire directories
-    - Seamless upgrade to Agentic RAG via `.as_agentic()`
+    - Seamless creation of Advanced and Agentic RAG via `.create_advanced_rag()` and `.create_agentic_rag()`
     """
 
     def __init__(
@@ -202,14 +202,14 @@ class RAGService:
         """Perform end-to-end RAG retrieval and answer generation."""
         return self._pipeline.execute(question=question, top_k=top_k)
 
-    def as_advanced(
+    def create_advanced_rag(
         self,
         top_k: int = 5,
         num_expanded_queries: int = 3,
         min_relevance_score: float = 0.0,
         verbose: bool = False,
     ) -> Any:
-        """Convert this RAGService instance into an AdvancedRAG pipeline."""
+        """Create an AdvancedRAG pipeline reusing this service's components."""
         from polyrag.pipelines.advanced import AdvancedRAG
         return AdvancedRAG(
             embedding_model=self.embedding_service,
@@ -222,15 +222,61 @@ class RAGService:
             verbose=verbose,
         )
 
+    def create_agentic_rag(
+        self,
+        top_k: int = 3,
+        max_rounds: int = 2,
+        verbose: bool = False,
+    ) -> "AgenticRAGService":
+        """Create an AgenticRAGService instance reusing this service's components."""
+        return AgenticRAGService(
+            rag_service=self,
+            top_k=top_k,
+            max_rounds=max_rounds,
+            verbose=verbose,
+        )
+
+    def create_react_agent(
+        self,
+        max_steps: int = 4,
+        default_top_k: int = 5,
+        verbose: bool = False,
+    ) -> Any:
+        """Create a ReActAgent pipeline reusing this service's components."""
+        from polyrag.pipelines.react import ReActAgent
+        return ReActAgent(
+            llm_client=self.llm_client,
+            embedding_model=self.embedding_service,
+            vector_store=self.vector_db,
+            max_steps=max_steps,
+            default_top_k=default_top_k,
+            verbose=verbose,
+        )
+
+    # Backward compatibility aliases
+    def as_advanced(
+        self,
+        top_k: int = 5,
+        num_expanded_queries: int = 3,
+        min_relevance_score: float = 0.0,
+        verbose: bool = False,
+    ) -> Any:
+        """Alias for create_advanced_rag (retained for backward compatibility)."""
+        return self.create_advanced_rag(
+            top_k=top_k,
+            num_expanded_queries=num_expanded_queries,
+            min_relevance_score=min_relevance_score,
+            verbose=verbose,
+        )
+
     def as_agentic(
         self,
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,
     ) -> "AgenticRAGService":
-        """Convert this RAGService instance into an AgenticRAGService."""
-        return AgenticRAGService(
-            rag_service=self,
+        """Alias for create_agentic_rag (retained for backward compatibility)."""
+        return self.create_agentic_rag(
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
