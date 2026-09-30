@@ -1,27 +1,27 @@
 # Custom Pipeline Configuration
 
-PolyRAG is architected around the **Dependency Inversion Principle**. Every component implements a well-defined abstract interface in `polyrag.core.interfaces`. You can configure and swap any piece of the pipeline without altering the core retrieval logic.
+PolyRAG is architected around the **Dependency Inversion Principle**. Every component adheres to abstract interfaces defined in `polyrag.core.interfaces`. You can swap any component or write custom implementations without modifying core pipelines.
 
 ---
 
-## 1. Configuring Chunkers
+## 1. Chunkers (`BaseChunker`)
 
 ### `RecursiveCharacterChunker` (Recommended)
-Splits text along natural structural boundaries (paragraphs, sentences, words):
+Recursively splits text using natural hierarchy (paragraphs, newlines, sentences, spaces):
 
 ```python
 from polyrag import RecursiveCharacterChunker
 
 chunker = RecursiveCharacterChunker(
-    chunk_size=550,           # Target chunk length in characters
-    chunk_overlap=50,         # Character overlap between adjacent chunks
+    chunk_size=550,           # Max chunk character length
+    chunk_overlap=50,         # Overlap between consecutive chunks
     separators=["\n\n", "\n", ". ", " ", ""],
-    drop_empty=True,          # Discard whitespace-only chunks
+    drop_empty=True,          # Discard whitespace chunks
 )
 ```
 
 ### `FixedSizeChunker`
-Strict character window slicing with overlap:
+Fixed-window slicing with overlap:
 
 ```python
 from polyrag import FixedSizeChunker
@@ -35,24 +35,22 @@ chunker = FixedSizeChunker(
 
 ---
 
-## 2. Configuring Embeddings
+## 2. Embeddings (`BaseEmbeddingModel`)
 
-### Local Offline Embeddings (`SentenceTransformerEmbedding`)
-Runs entirely locally using PyTorch without external network calls:
+### `SentenceTransformerEmbedding` (Local PyTorch)
+Runs completely offline on CPU, CUDA, or MPS:
 
 ```python
 from polyrag import SentenceTransformerEmbedding
 
 embedding_model = SentenceTransformerEmbedding(
-    model_name="all-MiniLM-L6-v2",  # HuggingFace model identifier
-    device="cuda",                   # 'cuda', 'cpu', or 'mps'
+    model_name="all-MiniLM-L6-v2",
+    device="cuda",                   # 'cuda', 'cpu', 'mps'
     normalize=True,                  # L2-normalize vectors for cosine similarity
 )
 ```
 
-### Remote Embeddings (`OpenAIEmbedding`)
-Uses OpenAI's embedding API:
-
+### `OpenAIEmbedding` (Cloud API)
 ```python
 from polyrag import OpenAIEmbedding
 
@@ -64,10 +62,10 @@ embedding_model = OpenAIEmbedding(
 
 ---
 
-## 3. Configuring Vector Stores
+## 3. Vector Stores (`BaseVectorStore`)
 
-### In-Memory Vector Store (`InMemoryVectorStore`)
-Zero-dependency, thread-safe, cosine-similarity storage ideal for unit tests, rapid prototyping, and ephemeral workflows:
+### `InMemoryVectorStore` (Zero-Dependency)
+Thread-safe in-memory vector store with cosine similarity ranking. Perfect for testing and ephemeral tasks:
 
 ```python
 from polyrag import InMemoryVectorStore
@@ -75,24 +73,19 @@ from polyrag import InMemoryVectorStore
 vector_store = InMemoryVectorStore()
 ```
 
-### ChromaDB (`ChromaVectorStore`)
-Persistent, disk-backed or remote collection vector storage:
-
+### `ChromaVectorStore` (Persistent / Remote)
 ```python
 from polyrag import ChromaVectorStore
 
 vector_store = ChromaVectorStore(
-    persist_path="./chroma_db",       # Set None for in-memory Chroma
-    collection_name="knowledge_base",
+    persist_path="./chroma_db",
+    collection_name="production_docs",
 )
 ```
 
 ---
 
-## 4. Configuring LLM Clients
-
-### `OpenAILLM`
-Supports both official OpenAI and Azure OpenAI endpoints:
+## 4. LLM Clients (`BaseLLMClient`)
 
 ```python
 from polyrag import OpenAILLM
@@ -106,22 +99,57 @@ llm = OpenAILLM(
 
 ---
 
-## 5. Implementing a Custom Component
+## 5. Assembling Any Pipeline in the Hierarchy
 
-You can implement your own adapters by subclassing the abstract interfaces in `polyrag.core`:
+Once components are configured, pass them to any pipeline deriving from `BaseRAG`:
 
 ```python
-from polyrag.core.interfaces import BaseEmbeddingModel
+from polyrag import NaiveRAG, AdvancedRAG, AgenticRAG
 
-class CustomEmbedding(BaseEmbeddingModel):
-    @property
-    def dim(self) -> int:
-        return 768
+# Standard Naive RAG
+naive = NaiveRAG(
+    chunker=chunker,
+    embedding_model=embedding_model,
+    vector_store=vector_store,
+    llm_client=llm,
+)
 
-    def embed_text(self, text: str) -> list[float]:
-        # Call your proprietary model or endpoint
-        return [0.0] * 768
+# Advanced RAG (Multi-Query Expansion & RRF)
+advanced = AdvancedRAG(
+    chunker=chunker,
+    embedding_model=embedding_model,
+    vector_store=vector_store,
+    llm_client=llm,
+    num_expanded_queries=3,
+    top_k=5,
+)
 
-    def embed_batch(self, texts: list[str], batch_size: int = 128) -> list[list[float]]:
-        return [self.embed_text(t) for t in texts]
+# Agentic RAG (Autonomous Planning & Fused Reflection)
+agentic = AgenticRAG(
+    chunker=chunker,
+    embedding_model=embedding_model,
+    vector_store=vector_store,
+    llm_client=llm,
+    top_k=3,
+    max_rounds=2,
+    verbose=True,
+)
+```
+
+---
+
+## 6. Implementing Custom Adapters
+
+To integrate a new vector database (e.g. Qdrant, Pinecone) or embedding provider (e.g. Cohere, Gemini), subclass the base interfaces:
+
+```python
+from polyrag.core.interfaces import BaseVectorStore
+from typing import Any
+
+class CustomVectorStore(BaseVectorStore):
+    def clear(self) -> None: ...
+    def add_documents(self, vectors: list[list[float]], documents: list[dict[str, Any]], batch_size: int = 5000) -> None: ...
+    def search(self, query_vector: list[float], top_k: int = 5) -> list[dict[str, Any]]: ...
+    def count(self) -> int: ...
+    def peek(self, limit: int = 5) -> Any: ...
 ```
