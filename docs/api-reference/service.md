@@ -1,10 +1,10 @@
-# API Reference: Services
+# API Reference: Services & DI Container
 
-The `polyrag.service` module provides developer-facing facades designed for zero-boilerplate integration.
+The `polyrag.service` and `polyrag.container` modules provide high-level facades and composition tools.
 
 ---
 
-## `RAGService`
+## 1. `RAGService` (`polyrag.service.RAGService`)
 
 ```python
 class RAGService:
@@ -21,7 +21,7 @@ class RAGService:
 ### Factory Constructors
 
 #### `RAGService.from_env(...)`
-Reads environment variables (or `.env`) and initializes matching adapters:
+Instantiates from environment variables:
 ```python
 @classmethod
 def from_env(
@@ -33,7 +33,7 @@ def from_env(
 ```
 
 #### `RAGService.create(...)`
-Convenience factory constructor with sensible defaults:
+Convenience factory with sensible defaults:
 ```python
 @classmethod
 def create(
@@ -45,37 +45,30 @@ def create(
 ) -> RAGService: ...
 ```
 
+#### `RAGService.from_container(container)`
+Instantiates directly from an injected `Container`:
+```python
+@classmethod
+def from_container(cls, container: Any) -> RAGService: ...
+```
+
 ### Ingestion Methods
-
-#### `service.ingest(text, source="document", metadata=None)`
-Splits, embeds, and indexes document text into the vector database.
-- **Returns**: `list[dict[str, Any]]` of indexed document chunks.
-
-#### `service.ingest_file(file_path, metadata=None)`
-Reads a local file (`.txt`, `.md`, etc.) and indexes it.
-
-#### `service.ingest_directory(dir_path, glob_pattern="*.txt", metadata=None)`
-Recursively scans and indexes all matching files within a directory.
+- `ingest(text: str, source: str = "document", metadata: dict | None = None) -> list[dict]`
+- `ingest_file(file_path: Path | str, metadata: dict | None = None) -> list[dict]`
+- `ingest_directory(dir_path: Path | str, glob_pattern: str = "*.txt", metadata: dict | None = None) -> list[dict]`
 
 ### Query Methods
+- `retrieve(query: str, top_k: int = 5) -> list[dict]`
+- `format_context(search_results: list[dict]) -> str`
+- `query(question: str, top_k: int = 5) -> RAGResponse`
 
-#### `service.retrieve(query, top_k=5)`
-Computes the query embedding and performs nearest-neighbor vector search.
-- **Returns**: `list[dict[str, Any]]` sorted by similarity score.
-
-#### `service.format_context(search_results)`
-Formats retrieved results into a clean string block with source headers.
-
-#### `service.query(question, top_k=5)`
-Executes full Retrieve-then-Read pipeline.
-- **Returns**: `RAGResponse`.
-
-#### `service.as_agentic(top_k=3, max_rounds=2, verbose=False)`
-Converts the `RAGService` into an `AgenticRAGService` instance sharing the same vector store and models.
+### Pipeline Conversion
+- `as_advanced(top_k=5, num_expanded_queries=3, min_relevance_score=0.0, verbose=False) -> AdvancedRAG`
+- `as_agentic(top_k=3, max_rounds=2, verbose=False) -> AgenticRAGService`
 
 ---
 
-## `AgenticRAGService`
+## 2. `AgenticRAGService` (`polyrag.service.AgenticRAGService`)
 
 ```python
 class AgenticRAGService:
@@ -89,36 +82,38 @@ class AgenticRAGService:
 ```
 
 ### Factory Constructors
-
-#### `AgenticRAGService.from_env(...)`
-Instantiates an Agentic RAG service reading configuration from environment variables:
-```python
-@classmethod
-def from_env(
-    cls,
-    top_k: int = 3,
-    max_rounds: int = 2,
-    verbose: bool = False,
-    persist_dir: str | Path | None = "./chroma_db",
-    collection_name: str = "rfc_documents",
-) -> AgenticRAGService: ...
-```
+- `AgenticRAGService.from_env(top_k=3, max_rounds=2, verbose=False, ...) -> AgenticRAGService`
+- `AgenticRAGService.from_container(container, top_k=3, max_rounds=2, verbose=False) -> AgenticRAGService`
 
 ### Methods
+- `query(question: str) -> RAGResponse`
+- `decide_retrieval(question: str) -> dict[str, Any]`
+- `direct_answer(question: str) -> str`
+- `reflect_and_evaluate(question: str, context: str, round_number: int) -> dict[str, Any]`
 
-#### `agentic_service.query(question)`
-Executes the full iterative reasoning workflow:
-1. Planning & query rewrite
-2. Multi-round retrieval & deduplication
-3. Fused reflection & synthesis
-- **Returns**: `RAGResponse` (includes `agent_log`, `confidence`, `reasoning_summary`).
+---
 
-#### `agentic_service.decide_retrieval(question)`
-Inspects the question and returns planning decisions:
-`{"retrieval_needed": bool, "query": str, "reason": str}`.
+## 3. `Container` (`polyrag.container.Container`)
 
-#### `agentic_service.direct_answer(question)`
-Bypasses retrieval for conversational or polite questions.
+```python
+class Container:
+    def __init__(self) -> None: ...
+```
 
-#### `agentic_service.reflect_and_evaluate(question, context, round_number)`
-Evaluates factual completeness and returns evidence sufficiency status.
+### Registration & Resolution
+- `register_instance(interface: type[T], instance: T) -> Container`
+- `register_factory(interface: type[T], factory: Callable[..., T], singleton: bool = True) -> Container`
+- `resolve(interface: type[T]) -> T`
+- `is_registered(interface: type) -> bool`
+
+### Pipeline Builders
+- `build_naive_rag() -> NaiveRAG`
+- `build_advanced_rag(top_k=5, num_expanded_queries=3, min_relevance_score=0.0, verbose=False) -> AdvancedRAG`
+- `build_agentic_rag(top_k=3, max_rounds=2, verbose=False) -> AgenticRAG`
+- `build_react_agent(max_steps=4, default_top_k=5, verbose=False) -> ReActAgent`
+- `build_service() -> RAGService`
+- `build_agentic_service(top_k=3, max_rounds=2, verbose=False) -> AgenticRAGService`
+
+### Factory Constructors
+- `Container.create(...) -> Container`
+- `Container.from_env(...) -> Container`
