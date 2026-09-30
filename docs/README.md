@@ -17,6 +17,7 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 
 ### 3. [Architecture & Guides](guides/)
 - [Naive RAG Guide](guides/naive-rag.md): The standard Retrieve-then-Read pipeline, optimal use cases, and limitations.
+- [Advanced RAG Guide](guides/advanced-rag.md): Pre-retrieval query expansion, multi-query fusion, and RRF re-ranking.
 - [Agentic RAG Guide](guides/agentic-rag.md): Query rewriting, iterative multi-round retrieval, deduplication, and fused self-reflection.
 - [ReAct Agent Guide](guides/react-agent.md): Autonomous Thought-Action-Observation reasoning loop with tool execution.
 
