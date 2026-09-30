@@ -1,72 +1,75 @@
-# Environment Configuration
+# Environment Configuration Reference
 
-PolyRAG supports declarative configuration through system environment variables or `.env` files. This allows zero-code configuration when using `RAGService.from_env()`.
+PolyRAG supports declarative configuration through system environment variables and `.env` files. Both `RAGService.from_env()` and `Container.from_env()` read these parameters automatically.
 
 ---
 
-## Supported Environment Variables
+## 1. Supported Variables
 
-| Variable | Description | Default | Example |
+| Environment Variable | Description | Default | Example |
 | :--- | :--- | :--- | :--- |
-| `OPENAI_API_KEY` | Secret API key for OpenAI or Azure OpenAI | *None* | `sk-proj-...` |
-| `MODEL_NAME` | Target LLM model name | `gpt-4o-mini` | `gpt-4o-mini`, `gpt-4o` |
-| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint URL | *None* | `https://my-resource.openai.azure.com` |
-| `OPENAI_API_VERSION` | API version for Azure OpenAI completions | *None* | `2024-02-15-preview` |
-| `EMBEDDING_MODEL` | HuggingFace or OpenAI embedding model name | `all-MiniLM-L6-v2` | `all-MiniLM-L6-v2`, `text-embedding-3-small` |
-| `CHROMA_PERSIST_DIR` | Path to persistent local vector database folder | `./chroma_db` | `./data/chroma_db` |
-| `COLLECTION_NAME` | ChromaDB collection name | `documents` | `rfc_collection` |
+| `OPENAI_API_KEY` | Secret API key for OpenAI / Azure OpenAI | *None* | `sk-proj-xyz...` |
+| `MODEL_NAME` | Primary LLM model deployment name | `gpt-4o-mini` | `gpt-4o-mini`, `gpt-4o` |
+| `AZURE_OPENAI_ENDPOINT` | Azure OpenAI resource endpoint URL | *None* | `https://my-res.openai.azure.com` |
+| `OPENAI_API_VERSION` | API version for Azure OpenAI | *None* | `2024-02-15-preview` |
+| `EMBEDDING_MODEL` | Embedding model identifier | `all-MiniLM-L6-v2` | `all-MiniLM-L6-v2`, `text-embedding-3-small` |
+| `CHROMA_PERSIST_DIR` | Local disk folder for ChromaDB storage | `./chroma_db` | `./data/chroma_db` |
+| `COLLECTION_NAME` | Target vector collection name | `documents` | `rfc_documents` |
 
 ---
 
-## Example `.env` File
+## 2. Sample `.env` Configuration
 
-Create a `.env` file in the root of your application:
+Create a `.env` file in the root of your project:
 
 ```bash
-# LLM Configuration
-OPENAI_API_KEY=sk-your-openai-api-key-here
+# ==========================================
+# LLM Provider Configuration
+# ==========================================
+OPENAI_API_KEY=sk-your-openai-api-key
 MODEL_NAME=gpt-4o-mini
 
+# ==========================================
 # Vector Database Configuration
+# ==========================================
 CHROMA_PERSIST_DIR=./chroma_db
 COLLECTION_NAME=technical_specs
 
+# ==========================================
 # Embedding Model Configuration
+# ==========================================
 EMBEDDING_MODEL=all-MiniLM-L6-v2
 ```
 
 ---
 
-## Using Environment Variables in Code
+## 3. Microsoft Azure OpenAI Setup
 
-When calling `RAGService.from_env()`, PolyRAG automatically resolves your settings:
-
-```python
-from dotenv import load_dotenv
-from polyrag import RAGService
-
-# Load environment variables from .env
-load_dotenv()
-
-# Automatically creates clients matching the environment configuration:
-service = RAGService.from_env(
-    persist_dir="./chroma_db",
-    collection_name="technical_specs",
-    embedding_model="all-MiniLM-L6-v2",
-)
-```
-
----
-
-## Azure OpenAI Configuration
-
-If you are using Microsoft Azure OpenAI:
+For enterprise deployments on Microsoft Azure, set the endpoint and API version:
 
 ```bash
 AZURE_OPENAI_ENDPOINT=https://your-company.openai.azure.com/
-OPENAI_API_KEY=your-azure-key
+OPENAI_API_KEY=your-azure-api-key
 OPENAI_API_VERSION=2024-02-15-preview
 MODEL_NAME=gpt-4o-mini  # Your Azure deployment name
 ```
 
-PolyRAG's `OpenAILLM` adapter detects both standard OpenAI and Azure OpenAI response contracts automatically.
+PolyRAG's `OpenAILLM` adapter detects whether `responses.create` or `chat.completions` is available and normalizes the output seamlessly.
+
+---
+
+## 4. Programmatic Usage
+
+```python
+from dotenv import load_dotenv
+from polyrag import Container, RAGService
+
+load_dotenv()
+
+# Option A: Automatic via Facade
+service = RAGService.from_env()
+
+# Option B: Automatic via Dependency Injection Container
+container = Container.from_env()
+pipeline = container.build_agentic_rag()
+```
