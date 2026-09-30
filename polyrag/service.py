@@ -202,6 +202,26 @@ class RAGService:
         """Perform end-to-end RAG retrieval and answer generation."""
         return self._pipeline.execute(question=question, top_k=top_k)
 
+    def as_advanced(
+        self,
+        top_k: int = 5,
+        num_expanded_queries: int = 3,
+        min_relevance_score: float = 0.0,
+        verbose: bool = False,
+    ) -> Any:
+        """Convert this RAGService instance into an AdvancedRAG pipeline."""
+        from polyrag.pipelines.advanced import AdvancedRAG
+        return AdvancedRAG(
+            embedding_model=self.embedding_service,
+            vector_store=self.vector_db,
+            llm_client=self.llm_client,
+            chunker=self.chunking_service,
+            top_k=top_k,
+            num_expanded_queries=num_expanded_queries,
+            min_relevance_score=min_relevance_score,
+            verbose=verbose,
+        )
+
     def as_agentic(
         self,
         top_k: int = 3,

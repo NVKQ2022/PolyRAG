@@ -30,9 +30,11 @@ from polyrag.exceptions import (
     RetrievalError,
 )
 from polyrag.llms.openai import OpenAILLM
+from polyrag.pipelines.advanced import AdvancedRAG
 from polyrag.pipelines.agentic import AgenticRAG
+from polyrag.pipelines.base import BaseRAG
 from polyrag.pipelines.naive import NaiveRAG
-from polyrag.pipelines.react import ReActAgent
+from polyrag.pipelines.react import ReActAgent, ReActRAG
 from polyrag.service import AgenticRAGService, RAGService
 from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
@@ -45,10 +47,13 @@ __all__ = [
     # Top-level service facades
     "RAGService",
     "AgenticRAGService",
-    # Pipelines
+    # RAG Architecture Hierarchy
+    "BaseRAG",
     "NaiveRAG",
+    "AdvancedRAG",
     "AgenticRAG",
     "ReActAgent",
+    "ReActRAG",
     # Chunkers
     "BaseChunker",
     "FixedSizeChunker",

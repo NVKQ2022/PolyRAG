@@ -160,6 +160,26 @@ class Container:
             chunker=self.resolve(BaseChunker),
         )
 
+    def build_advanced_rag(
+        self,
+        top_k: int = 5,
+        num_expanded_queries: int = 3,
+        min_relevance_score: float = 0.0,
+        verbose: bool = False,
+    ) -> Any:
+        """Construct AdvancedRAG pipeline using injected dependencies."""
+        from polyrag.pipelines.advanced import AdvancedRAG
+        return AdvancedRAG(
+            embedding_model=self.resolve(BaseEmbeddingModel),
+            vector_store=self.resolve(BaseVectorStore),
+            llm_client=self.resolve(BaseLLMClient),
+            chunker=self.resolve(BaseChunker) if self.is_registered(BaseChunker) else None,
+            top_k=top_k,
+            num_expanded_queries=num_expanded_queries,
+            min_relevance_score=min_relevance_score,
+            verbose=verbose,
+        )
+
     def build_agentic_rag(
         self,
         top_k: int = 3,
