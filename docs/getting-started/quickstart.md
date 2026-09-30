@@ -1,12 +1,12 @@
 # Quickstart Guide 🚀
 
-Get up and running with **PolyRAG** in under 5 minutes.
+Get started with **PolyRAG** in under 5 minutes. This guide walks you through zero-dependency prototyping, production service facades, and the RAG class hierarchy.
 
 ---
 
-## 1. Minimal Working Example (Zero External API Keys)
+## 1. Zero-Dependency Prototyping (No API Key Required)
 
-PolyRAG includes an `InMemoryVectorStore` and supports offline embedding models. You can test retrieval logic without needing third-party API credentials:
+PolyRAG includes an `InMemoryVectorStore` and supports offline local embeddings. You can index, retrieve, and test retrieval logic right away:
 
 ```python
 from polyrag import (
@@ -17,11 +17,11 @@ from polyrag import (
 )
 
 # 1. Initialize components
-chunker = RecursiveCharacterChunker(chunk_size=200, chunk_overlap=30)
+chunker = RecursiveCharacterChunker(chunk_size=300, chunk_overlap=40)
 embedding_model = SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2")
 vector_store = InMemoryVectorStore()
 
-# 2. Build the pipeline
+# 2. Assemble NaiveRAG pipeline
 rag = NaiveRAG(
     chunker=chunker,
     embedding_model=embedding_model,
@@ -29,76 +29,87 @@ rag = NaiveRAG(
 )
 
 # 3. Ingest documents
-sample_document = """
-The Domain Name System (DNS) is a hierarchical naming system for computers,
-services, or other resources connected to the Internet or a private network.
-It translates human-friendly domain names like example.com into numerical IP addresses.
-"""
+rag.ingest_text(
+    text="""The Domain Name System (DNS) translates human-readable domain names 
+(like example.com) to machine-readable IP addresses (like 93.184.216.34).
+DNS uses UDP port 53 by default, but falls back to TCP when responses exceed 512 bytes.""",
+    source="rfc1035_summary.txt",
+)
 
-rag.ingest_text(text=sample_document, source="dns_overview.txt")
-
-# 4. Search relevant passages
-results = rag.retrieve("How does DNS translate domain names?", top_k=2)
+# 4. Perform vector search
+results = rag.retrieve("When does DNS use TCP port 53?", top_k=2)
 
 for r in results:
     doc = r["document"]
-    print(f"[{doc['source']}#{doc['chunk_id']}] (Score: {r['score']:.4f})")
+    print(f"[{doc['source']}#{doc['chunk_id']}] Similarity: {r['score']:.4f}")
     print(doc["text"])
 ```
 
 ---
 
-## 2. End-to-End RAG with `RAGService` (Using OpenAI / LLM)
+## 2. Production Service Facade (`RAGService`)
 
-When an LLM client is available, use `RAGService` for complete question-answering with factual grounding:
+When interacting with LLMs (OpenAI, Azure OpenAI), `RAGService` provides an end-to-end facade:
 
 ```python
 import os
 from polyrag import RAGService
 
-# Set your API credentials
 os.environ["OPENAI_API_KEY"] = "sk-..."
 os.environ["MODEL_NAME"] = "gpt-4o-mini"
 
-# Initialize RAGService automatically from environment
+# Automatic initialization from environment
 service = RAGService.from_env()
 
-# Ingest technical specifications or documentation
-service.ingest_file("data/specifications.txt")
+# Ingest single files or entire folders
+service.ingest_file("data/architecture_spec.txt")
+service.ingest_directory("docs/", glob_pattern="*.txt")
 
-# Query the pipeline
-response = service.query("What are the key requirements for authentication?")
-
+# End-to-end question answering
+response = service.query("What are the main communication protocols?")
 print("Answer:", response.answer)
-print("Context used:", response.context)
 print("Sources:", response.sources)
 ```
 
 ---
 
-## 3. Upgrading to Agentic Multi-Round RAG
+## 3. Scaling Through the RAG Hierarchy
 
-If questions require multi-hop reasoning or missing evidence detection, upgrade your service instance with `.as_agentic()`:
+As question complexity grows, upgrade your pipeline seamlessly:
 
 ```python
-# Convert to Agentic RAG with reflection and multi-round retrieval
-agentic_service = service.as_agentic(max_rounds=2, top_k=3, verbose=True)
+# Level 1: Standard 1-Shot RAG
+naive_response = service.query("What is DNS?")
 
-# Complex multi-hop query
-response = agentic_service.query(
-    "How does TLS 1.3 key exchange differ from TLS 1.2, and how does QUIC incorporate it?"
+# Level 2: Advanced RAG (Multi-Query Expansion & RRF Re-ranking)
+advanced = service.as_advanced(num_expanded_queries=3, top_k=5)
+advanced_response = advanced.query("How does DNS handle packet truncation?")
+
+# Level 3: Agentic RAG (Autonomous Planning, Multi-Round Loop & Fused Reflection)
+agentic = service.as_agentic(max_rounds=2, top_k=3, verbose=True)
+agentic_response = agentic.query(
+    "Compare how DNS and QUIC handle packet fallback and connection recovery."
 )
 
-print("\n=== FINAL GROUNDED SYNTHESIS ===")
-print(response.answer)
-print("\n=== CONFIDENCE ===", response.confidence)
-print("=== REASONING ===", response.reasoning_summary)
+print("Agentic Grounded Answer:\n", agentic_response.answer)
+print("Confidence:", agentic_response.confidence)
+print("Trajectory:", agentic_response.reasoning_summary)
 ```
 
 ---
 
-## Next Steps
+## 4. Using the Dependency Injection Container
 
-- Explore [Configuration Guide](../configuration/environment.md) to customize vector databases, chunking sizes, and models.
-- Learn about [Agentic RAG Workflows](../guides/agentic-rag.md) for self-reflection and multi-hop queries.
-- Check out the [ReAct Agent Guide](../guides/react-agent.md) for tool-based reasoning.
+For clean architecture and enterprise projects, use `Container`:
+
+```python
+from polyrag import Container
+
+# Build from environment
+container = Container.from_env()
+
+# Resolve pre-wired pipelines
+pipeline = container.build_agentic_rag(top_k=3, max_rounds=2)
+response = pipeline.query("Explain TLS 1.3 0-RTT handshakes.")
+print(response.answer)
+```
