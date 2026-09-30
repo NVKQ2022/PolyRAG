@@ -122,11 +122,11 @@ Upgrade your pipeline strategy in 1 line as question complexity increases:
 naive_res = service.query("What is DNS?")
 
 # Level 2: Advanced RAG (Multi-Query Expansion & RRF Re-ranking)
-advanced = service.as_advanced(num_expanded_queries=3, top_k=5)
+advanced = service.create_advanced_rag(num_expanded_queries=3, top_k=5)
 advanced_res = advanced.query("How does DNS handle packet truncation?")
 
 # Level 3: Agentic RAG (Autonomous Multi-Round Loop & Fused Reflection)
-agentic = service.as_agentic(max_rounds=2, top_k=3, verbose=True)
+agentic = service.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
 agentic_res = agentic.query(
     "What transport protocol does HTTP/3 rely on, and how does connection migration work?"
 )
