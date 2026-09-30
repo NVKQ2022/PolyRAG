@@ -9,6 +9,7 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 ### 1. [Getting Started](getting-started/)
 - [Installation Guide](getting-started/installation.md): Environment requirements, minimal installation, and optional dependency extras (`[openai]`, `[chroma]`, `[embeddings]`, `[all]`).
 - [Quickstart Guide](getting-started/quickstart.md): 5-minute hands-on walkthrough with zero-API-key and production examples.
+- [Publishing Guide](getting-started/publishing.md): Complete instructions for building and publishing to TestPyPI and PyPI.
 
 ### 2. [Configuration](configuration/)
 - [Environment Configuration](configuration/environment.md): Setting up `.env`, API keys, model parameters, and Azure OpenAI endpoints.
