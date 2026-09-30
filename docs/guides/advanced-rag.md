@@ -70,9 +70,9 @@ advanced = AdvancedRAG(
     verbose=True,
 )
 
-# Option B: Upgrading an existing RAGService in 1 line
+# Option B: Creating from an existing RAGService in 1 line
 service = RAGService.from_env()
-advanced = service.as_advanced(num_expanded_queries=3, top_k=5)
+advanced = service.create_advanced_rag(num_expanded_queries=3, top_k=5)
 
 # Execute query
 response = advanced.query("What mechanism does DNS use to handle UDP packet overflow?")
