@@ -70,3 +70,31 @@ def answer_user_query(pipeline: BaseRAG, question: str) -> str:
     response = pipeline.query(question)
     return response.answer
 ```
+
+---
+
+## 5. Manufacturing Pipelines via `PolyRAG`
+
+Instead of wiring dependencies manually for each pipeline, use [`PolyRAG`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/app.py) as the central setup orchestrator and factory:
+
+```python
+from polyrag import PolyRAG
+
+# 1. Setup models and vector storage once
+app = PolyRAG.from_env()
+
+# 2. Ingest shared knowledge
+app.ingest_file("handbook.pdf")
+
+# 3. Manufacture whichever pipeline is needed
+naive = app.create_naive_rag()
+advanced = app.create_advanced_rag(num_expanded_queries=3)
+agentic = app.create_agentic_rag(max_rounds=2)
+react = app.create_react_agent(max_steps=4)
+
+# All manufactured objects inherit from BaseRAG!
+assert isinstance(naive, BaseRAG)
+assert isinstance(advanced, BaseRAG)
+assert isinstance(agentic, BaseRAG)
+assert isinstance(react, BaseRAG)
+```
