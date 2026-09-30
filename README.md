@@ -139,18 +139,36 @@ print("Trajectory:", agentic_res.reasoning_summary)
 
 ---
 
-### 3. Using Dependency Injection
+### 3. Advanced: Dependency Injection (For Custom Backends & Testing)
+
+> [!TIP]
+> If you are using standard models and environment variables, `PolyRAG.from_env()` (above) is all you need. Use `Container` when you need to inject custom vector stores (e.g., Milvus, Qdrant), self-hosted LLMs (e.g., Ollama, vLLM), or mock dependencies for unit tests without hitting external APIs.
 
 ```python
-from polyrag import Container
+from polyrag import (
+    Container,
+    PolyRAG,
+    BaseVectorStore,
+    BaseLLMClient,
+    InMemoryVectorStore,
+)
 
-# Build pre-wired container from environment
-container = Container.from_env()
+# 1. Initialize DI Container (Composition Root)
+container = Container()
 
-# Resolve any pipeline directly
+# 2. Register custom implementations or test mocks
+container.register_instance(BaseVectorStore, InMemoryVectorStore())
+# container.register_instance(BaseLLMClient, MyCustomOllamaLLM())
+
+# 3. Option A: Build pipelines directly with injected dependencies
 pipeline = container.build_agentic_rag(top_k=3, max_rounds=2)
 response = pipeline.query("Explain TLS 1.3 0-RTT handshakes.")
 print(response.answer)
+
+# 3. Option B: Pass to PolyRAG for familiar ingestion & pipeline manufacturing
+app = PolyRAG.from_container(container)
+app.ingest("RFC 8446 defines the TLS 1.3 protocol.")
+advanced = app.create_advanced_rag()
 ```
 
 ---
