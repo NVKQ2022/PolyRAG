@@ -13,6 +13,7 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 ### 2. [Configuration](configuration/)
 - [Environment Configuration](configuration/environment.md): Setting up `.env`, API keys, model parameters, and Azure OpenAI endpoints.
 - [Custom Pipeline Configuration](configuration/custom-pipeline.md): Swapping chunkers, embedding models, vector stores, and implementing custom adapters.
+- [Dependency Injection Guide](configuration/dependency-injection.md): Using the `Container` to register, resolve, and wire components and pipelines.
 
 ### 3. [Architecture & Guides](guides/)
 - [Naive RAG Guide](guides/naive-rag.md): The standard Retrieve-then-Read pipeline, optimal use cases, and limitations.
