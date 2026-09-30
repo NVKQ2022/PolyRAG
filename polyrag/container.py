@@ -212,6 +212,11 @@ class Container:
             verbose=verbose,
         )
 
+    def build_app(self) -> Any:
+        """Construct PolyRAG application context using injected dependencies."""
+        from polyrag.app import PolyRAG
+        return PolyRAG.from_container(self)
+
     def build_service(self) -> Any:
         """Construct RAGService facade using injected dependencies."""
         from polyrag.service import RAGService

@@ -20,9 +20,13 @@ from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
 
 
-class RAGService:
+from polyrag.app import PolyRAG
+
+
+class RAGService(PolyRAG):
     """
     High-level, production-ready facade for RAG workflows.
+    Retained for full backward compatibility; for new projects, prefer `PolyRAG`.
 
     Features:
     - Zero-configuration `.from_env()` or `.create()` initialization
@@ -43,27 +47,25 @@ class RAGService:
 
         # Resolve LLM adapter
         if client is not None and not isinstance(client, BaseLLMClient):
-            self.llm_client: BaseLLMClient = OpenAILLM(client=client, model_name=self.model_name)
+            resolved_llm: BaseLLMClient = OpenAILLM(client=client, model_name=self.model_name)
         elif isinstance(client, BaseLLMClient):
-            self.llm_client = client
+            resolved_llm = client
         else:
-            self.llm_client = OpenAILLM(model_name=self.model_name)
+            resolved_llm = OpenAILLM(model_name=self.model_name)
 
-        # Retain self.client for backward compatibility
-        self.client = getattr(self.llm_client, "client", client)
-
-        # Components
-        self.chunking_service = chunking_service or RecursiveCharacterChunker()
-        self.embedding_service = embedding_service or SentenceTransformerEmbedding()
-        self.vector_db = vector_db or InMemoryVectorStore()
-
-        # Internal pipeline
-        self._pipeline = NaiveRAG(
-            embedding_model=self.embedding_service,
-            vector_store=self.vector_db,
-            llm_client=self.llm_client,
-            chunker=self.chunking_service,
+        super().__init__(
+            chunker=chunking_service,
+            embedding_model=embedding_service,
+            vector_store=vector_db,
+            llm_client=resolved_llm,
         )
+
+        # Backward compatibility attribute aliases
+        self.client = getattr(self.llm_client, "client", client)
+        self.chunking_service = self.chunker
+        self.embedding_service = self.embedding_model
+        self.vector_db = self.vector_store
+        self._pipeline = self._default_pipeline
 
     @classmethod
     def create(
@@ -144,84 +146,6 @@ class RAGService:
             model_name=getattr(llm, "model_name", None),
         )
 
-    def ingest(
-        self,
-        text: str,
-        source: str = "document",
-        metadata: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Chunk, embed, and store document text into the vector database."""
-        return self._pipeline.ingest_text(text=text, source=source, metadata=metadata)
-
-    def ingest_file(
-        self,
-        file_path: Path | str,
-        metadata: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Read and ingest a single document file."""
-        return self._pipeline.ingest_file(file_path=file_path, metadata=metadata)
-
-    def ingest_directory(
-        self,
-        dir_path: Path | str,
-        glob_pattern: str = "*.txt",
-        metadata: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Recursively scan and ingest all matching files in a directory."""
-        path = Path(dir_path)
-        if not path.is_dir():
-            raise NotADirectoryError(f"Directory not found: {path}")
-
-        added: list[dict[str, Any]] = []
-        for file in sorted(path.rglob(glob_pattern)):
-            if file.is_file():
-                docs = self.ingest_file(file, metadata=metadata)
-                added.extend(docs)
-        return added
-
-    def retrieve(
-        self,
-        query: str,
-        top_k: int = 5,
-    ) -> list[dict[str, Any]]:
-        """Find the top-k most relevant chunks for a query."""
-        return self._pipeline.retrieve(query=query, top_k=top_k)
-
-    def format_context(
-        self,
-        search_results: list[dict[str, Any]],
-    ) -> str:
-        """Format search results into a clean context string."""
-        return self._pipeline.format_context(search_results)
-
-    def query(
-        self,
-        question: str,
-        top_k: int = 5,
-    ) -> RAGResponse:
-        """Perform end-to-end RAG retrieval and answer generation."""
-        return self._pipeline.execute(question=question, top_k=top_k)
-
-    def create_advanced_rag(
-        self,
-        top_k: int = 5,
-        num_expanded_queries: int = 3,
-        min_relevance_score: float = 0.0,
-        verbose: bool = False,
-    ) -> Any:
-        """Create an AdvancedRAG pipeline reusing this service's components."""
-        from polyrag.pipelines.advanced import AdvancedRAG
-        return AdvancedRAG(
-            embedding_model=self.embedding_service,
-            vector_store=self.vector_db,
-            llm_client=self.llm_client,
-            chunker=self.chunking_service,
-            top_k=top_k,
-            num_expanded_queries=num_expanded_queries,
-            min_relevance_score=min_relevance_score,
-            verbose=verbose,
-        )
-
     def create_agentic_rag(
         self,
         top_k: int = 3,
@@ -233,23 +157,6 @@ class RAGService:
             rag_service=self,
             top_k=top_k,
             max_rounds=max_rounds,
-            verbose=verbose,
-        )
-
-    def create_react_agent(
-        self,
-        max_steps: int = 4,
-        default_top_k: int = 5,
-        verbose: bool = False,
-    ) -> Any:
-        """Create a ReActAgent pipeline reusing this service's components."""
-        from polyrag.pipelines.react import ReActAgent
-        return ReActAgent(
-            llm_client=self.llm_client,
-            embedding_model=self.embedding_service,
-            vector_store=self.vector_db,
-            max_steps=max_steps,
-            default_top_k=default_top_k,
             verbose=verbose,
         )
 
