@@ -1,49 +1,97 @@
 # Roadmap: GraphRAG & Multi-Paradigm Retrieval 🗺️
 
-PolyRAG is designed to expand beyond vector-only search into **GraphRAG** and **Hybrid Retrieval**, bridging unstructured text embeddings with structured relational knowledge.
+PolyRAG is engineered to expand beyond vector-only indexing into **GraphRAG** and **Hybrid Retrieval**, unifying unstructured semantic embeddings with structured relational knowledge.
 
 ---
 
-## The Motivation for GraphRAG
+## 1. Why GraphRAG?
 
-Standard vector retrieval excels at localized semantic similarity ("find text similar to this query"), but struggles with:
-1. **Holistic / Global Questions**: Questions like *"What are the primary recurring architectural challenges across all protocols?"* require summarizing an entire corpus, not just 5 chunks.
-2. **Multi-Hop Relational Links**: Traversing entity relationships (e.g., *RFC 9000 uses TLS 1.3 (RFC 8446), which replaces RSA key exchange*).
+Vector databases excel at local semantic lookup (*"find passages similar to this phrase"*), but fail on two core query archetypes:
+1. **Global Corpus Summaries**: Questions like *"What are the overarching protocol design patterns across all 15 RFC specifications?"* require synthesizing the whole corpus, not just 5 retrieved chunks.
+2. **Multi-Hop Relational Traversal**: When the answer requires following transitive relationships (*Entity A connects to B, which depends on C*), pure vector embeddings often miss intermediary link nodes.
 
-GraphRAG combines Knowledge Graph extraction with LLM community summarization to answer both local and global queries.
+GraphRAG extracts structured entities, discovers latent community clusters, generates hierarchical summaries, and provides graph-guided context.
 
 ---
 
-## Planned Architecture
+## 2. GraphRAG Pipeline Architecture
 
 ```
-[Raw Documents]
-       │
-       ▼ (Entity & Relationship Extraction)
-[Entities, Claims, & Relations]
-       │
-       ▼ (Graph Construction)
-[Knowledge Graph (NetworkX / Neo4j)]
-       │
-       ▼ (Leiden / Louvain Community Detection)
-[Hierarchical Graph Communities]
-       │
-       ▼ (LLM Community Summarization)
-[Community Summaries & Vector Indexing]
+[Raw Ingested Documents]
+           │
+           ▼ (1. Entity & Relationship Extraction via LLM)
+   [Nodes & Edges Extracted]
+           │
+           ▼ (2. Knowledge Graph Indexing)
+   [Graph Store: NetworkX / Neo4j]
+           │
+           ▼ (3. Community Detection: Leiden / Louvain)
+   [Hierarchical Graph Communities]
+           │
+           ▼ (4. Community Summarization via LLM)
+   [Cluster Reports & Vector Embeddings]
+           │
+           ▼ (5. Global / Local Graph Retrieval)
+   [Graph-Grounded Answer Synthesis]
 ```
 
 ---
 
-## Planned Extension Interfaces
+## 3. Integration into the `BaseRAG` Hierarchy
 
-To maintain PolyRAG's plug-and-play philosophy, GraphRAG will be introduced with abstract ports:
+`GraphRAG` will integrate seamlessly into PolyRAG's class hierarchy:
+
+```
+                       ┌─────────────────────────┐
+                       │         BaseRAG         │
+                       └────────────┬────────────┘
+                                    │
+         ┌──────────────────────────┼──────────────────────────┐
+         ▼                          ▼                          ▼
+  ┌──────────────┐           ┌──────────────┐           ┌──────────────┐
+  │   NaiveRAG   │           │ AdvancedRAG  │           │  AgenticRAG  │
+  └──────────────┘           └──────────────┘           └──────────────┘
+                                    │
+                                    ▼
+                             ┌──────────────┐
+                             │   GraphRAG   │
+                             │ (Knowledge)  │
+                             └──────────────┘
+```
+
+### Planned Syntax
+
+```python
+from polyrag import GraphRAG, ChromaVectorStore, NetworkXGraphStore, OpenAILLM
+
+# Planned future usage:
+graph_rag = GraphRAG(
+    vector_store=ChromaVectorStore(persist_path="./chroma_db"),
+    graph_store=NetworkXGraphStore(persist_path="./graph.json"),
+    llm_client=OpenAILLM(model_name="gpt-4o"),
+)
+
+# Global corpus-level reasoning
+response = graph_rag.query_global(
+    "What are the recurring error handling principles across all networking protocols?"
+)
+
+# Local relational entity traversal
+response = graph_rag.query_local(
+    "How does TLS 1.3 key negotiation integrate into QUIC connection migration?"
+)
+```
+
+---
+
+## 4. Planned Interfaces (`polyrag.core.interfaces`)
 
 ```python
 from abc import ABC, abstractmethod
 from typing import Any
 
-class BaseKnowledgeGraph(ABC):
-    """Abstract interface for knowledge graph stores."""
+class BaseGraphStore(ABC):
+    """Abstract interface for knowledge graph storage and community querying."""
 
     @abstractmethod
     def add_entity(self, name: str, entity_type: str, description: str) -> None: ...
@@ -53,24 +101,7 @@ class BaseKnowledgeGraph(ABC):
 
     @abstractmethod
     def query_subgraph(self, entity_names: list[str], max_depth: int = 2) -> dict[str, Any]: ...
-```
 
----
-
-## Hybrid Search (Vectors + Knowledge Graph)
-
-The upcoming `HybridRAG` pipeline will fuse results using Reciprocal Rank Fusion (RRF):
-
-```python
-# Planned future syntax:
-from polyrag import HybridRAG, ChromaVectorStore, NetworkXGraphStore
-
-rag = HybridRAG(
-    vector_store=ChromaVectorStore(persist_path="./chroma_db"),
-    graph_store=NetworkXGraphStore(persist_path="./graph.json"),
-    llm_client=OpenAILLM(model_name="gpt-4o"),
-)
-
-# Combines semantic vector chunks + relational subgraph context
-response = rag.query("How do TLS 1.3 and QUIC interconnect?")
+    @abstractmethod
+    def detect_communities(self) -> list[dict[str, Any]]: ...
 ```
