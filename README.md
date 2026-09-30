@@ -4,39 +4,67 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://pypi.org/project/polyrag/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**PolyRAG** is a modular, extensible, and production-ready Retrieval-Augmented Generation (RAG) framework designed to unify multiple RAG paradigms—from standard **Naive Vector RAG** and multi-hop **Agentic RAG**, to future expansions like **GraphRAG** and **Hybrid Retrieval**.
+**PolyRAG** is a modular, multi-paradigm Retrieval-Augmented Generation (RAG) framework designed to unify multiple RAG architectures—from standard **Naive 1-Shot RAG** and **Advanced Multi-Query RAG**, to autonomous **Agentic RAG** and future expansions like **GraphRAG**.
+
+---
+
+## 🏛️ The RAG Class Hierarchy
+
+PolyRAG is architected around an object-oriented class hierarchy rooted in `BaseRAG`:
+
+```
+                       ┌─────────────────────────┐
+                       │         BaseRAG         │
+                       │  (Abstract Base Class)  │
+                       └────────────┬────────────┘
+                                    │
+         ┌──────────────────────────┼──────────────────────────┐
+         ▼                          ▼                          ▼
+  ┌──────────────┐           ┌──────────────┐           ┌──────────────┐
+  │   NaiveRAG   │           │ AdvancedRAG  │           │  AgenticRAG  │
+  │ (1-Shot RAG) │           │ (Expand/RRF) │           │ (Reflection) │
+  └──────────────┘           └──────────────┘           └──────┬───────┘
+                                                               │
+                                                               ▼
+                                                        ┌──────────────┐
+                                                        │  ReActAgent  │
+                                                        │ (ReActRAG)   │
+                                                        └──────────────┘
+```
+
+All derived pipelines inherit shared document ingestion (`ingest_text`, `ingest_file`, `ingest_directory`), vector search (`retrieve`), and context assembly (`format_context`) from `BaseRAG`.
 
 ---
 
 ## 🌟 Key Features
 
 - **Multi-Paradigm Pipelines**:
-  - `NaiveRAG`: Standard retrieve-then-read pipeline with low latency.
-  - `AgenticRAG`: Planning, semantic query rewriting, iterative multi-round vector search, deduplication, and fused reflection with grounded citations.
+  - `NaiveRAG`: Standard retrieve-then-read pipeline with minimal latency.
+  - `AdvancedRAG`: Multi-query expansion, parallel search, and Reciprocal Rank Fusion (RRF) re-ranking.
+  - `AgenticRAG`: Planning, keyword rewriting, iterative multi-round search, deduplication, and fused self-reflection with source citations.
   - `ReActAgent`: Structured Thought-Action-Observation reasoning loop with dynamic tool execution.
-  - *Coming Soon*: `GraphRAG` (knowledge graph entity extraction and community summarization).
+  - *Coming Soon*: `GraphRAG` (knowledge graph entity extraction, community detection, and summarization).
 
-- **Clean & Swappable Interfaces**:
+- **Dependency Injection**:
+  - Built-in `Container` acting as the Composition Root for all services, adapters, and pipelines.
+  - Full support for Singleton and Transient scopes, lifecycle management, and 1-line test mocking.
+
+- **Clean & Swappable Adapters**:
   - **Chunkers**: `FixedSizeChunker`, `RecursiveCharacterChunker` (boundary-aware).
-  - **Embeddings**: `OpenAIEmbedding`, `SentenceTransformerEmbedding`.
-  - **Vector Stores**: `ChromaVectorStore` (persistent / in-memory), zero-dependency `InMemoryVectorStore`.
-  - **LLMs**: `OpenAILLM` (supporting both Azure OpenAI response structures and standard chat completions).
-
-- **Developer First**:
-  - Zero-configuration `.from_env()` and `.create()` factory constructors.
-  - 1-line upgrade from Naive to Agentic via `.as_agentic()`.
-  - Fully typed with PEP 561 compliance (`py.typed`).
+  - **Embeddings**: `OpenAIEmbedding`, `SentenceTransformerEmbedding` (PyTorch).
+  - **Vector Stores**: `ChromaVectorStore` (persistent / remote), `InMemoryVectorStore` (zero-dependency cosine similarity).
+  - **LLMs**: `OpenAILLM` (supporting OpenAI chat completions and Azure OpenAI `responses.create`).
 
 ---
 
 ## 📚 Documentation
 
-Detailed documentation is available in the [`docs/`](docs/) directory:
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
 
 - **[Getting Started](docs/getting-started/)**: [Installation](docs/getting-started/installation.md) & [Quickstart](docs/getting-started/quickstart.md)
-- **[Configuration](docs/configuration/)**: [Environment Variables](docs/configuration/environment.md) & [Custom Pipelines](docs/configuration/custom-pipeline.md)
-- **[Guides](docs/guides/)**: [Naive RAG](docs/guides/naive-rag.md), [Agentic RAG](docs/guides/agentic-rag.md), & [ReAct Agent](docs/guides/react-agent.md)
-- **[API Reference](docs/api-reference/)**: [Core Entities](docs/api-reference/core.md) & [Services](docs/api-reference/service.md)
+- **[Configuration](docs/configuration/)**: [Environment Variables](docs/configuration/environment.md), [Custom Pipelines](docs/configuration/custom-pipeline.md), & [Dependency Injection Guide](docs/configuration/dependency-injection.md)
+- **[Guides](docs/guides/)**: [Class Hierarchy](docs/guides/class-hierarchy.md), [Naive RAG](docs/guides/naive-rag.md), [Advanced RAG](docs/guides/advanced-rag.md), [Agentic RAG](docs/guides/agentic-rag.md), & [ReAct Agent](docs/guides/react-agent.md)
+- **[API Reference](docs/api-reference/)**: [Core Entities](docs/api-reference/core.md), [Pipelines](docs/api-reference/pipelines.md), & [Services / Container](docs/api-reference/service.md)
 - **[Roadmap](docs/roadmap/)**: [GraphRAG & Hybrid Search](docs/roadmap/graphrag.md)
 
 ---
@@ -77,68 +105,58 @@ service.ingest("RFC 1035 specifies DNS domain name syntax.", source="rfc1035.txt
 service.ingest_file("data/rfc9000.txt")
 service.ingest_directory("docs/", glob_pattern="*.txt")
 
-# Retrieve top-k relevant chunks
-results = service.retrieve("What is DNS?", top_k=3)
-
 # End-to-end question answering
-response = service.query("How does DNS map names to addresses?")
+response = service.query("How does DNS translate domain names?")
 print("Answer:", response.answer)
 print("Sources:", response.sources)
 ```
 
 ---
 
-### 2. Seamless Upgrade to Agentic RAG
+### 2. Upgrading Through the Pipeline Hierarchy
 
-Turn your existing retrieval service into an autonomous multi-round reasoning agent with one line:
+Upgrade your pipeline strategy in 1 line as question complexity increases:
 
 ```python
-# Convert existing service into an Agentic RAG service
-agentic = service.as_agentic(max_rounds=2, top_k=3, verbose=True)
+# Level 1: Standard 1-Shot RAG
+naive_res = service.query("What is DNS?")
 
-# Multi-hop question answering with reflection & source citations
-response = agentic.query(
-    "What transport protocol does HTTP/3 rely on, and how does it handle connection migration?"
+# Level 2: Advanced RAG (Multi-Query Expansion & RRF Re-ranking)
+advanced = service.as_advanced(num_expanded_queries=3, top_k=5)
+advanced_res = advanced.query("How does DNS handle packet truncation?")
+
+# Level 3: Agentic RAG (Autonomous Multi-Round Loop & Fused Reflection)
+agentic = service.as_agentic(max_rounds=2, top_k=3, verbose=True)
+agentic_res = agentic.query(
+    "What transport protocol does HTTP/3 rely on, and how does connection migration work?"
 )
 
-print("Grounded Answer:\n", response.answer)
-print("Confidence:", response.confidence)
-print("Execution Summary:", response.reasoning_summary)
+print("Agentic Grounded Answer:\n", agentic_res.answer)
+print("Confidence:", agentic_res.confidence)
+print("Trajectory:", agentic_res.reasoning_summary)
 ```
 
 ---
 
-### 3. Custom Pipeline Composition
-
-Swap out any component without changing your core application logic:
+### 3. Using Dependency Injection
 
 ```python
-from polyrag import (
-    NaiveRAG,
-    RecursiveCharacterChunker,
-    SentenceTransformerEmbedding,
-    InMemoryVectorStore,
-    OpenAILLM,
-)
+from polyrag import Container
 
-# Build a fully customized pipeline
-pipeline = NaiveRAG(
-    chunker=RecursiveCharacterChunker(chunk_size=500, chunk_overlap=50),
-    embedding_model=SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2"),
-    vector_store=InMemoryVectorStore(),
-    llm_client=OpenAILLM(model_name="gpt-4o-mini"),
-)
+# Build pre-wired container from environment
+container = Container.from_env()
 
-pipeline.ingest_text("Custom document content...", source="my_doc.txt")
-result = pipeline.execute("My question?")
-print(result.answer)
+# Resolve any pipeline directly
+pipeline = container.build_agentic_rag(top_k=3, max_rounds=2)
+response = pipeline.query("Explain TLS 1.3 0-RTT handshakes.")
+print(response.answer)
 ```
 
 ---
 
 ## 🧪 Testing
 
-PolyRAG includes a complete suite of unit tests verifying all chunkers, stores, and pipelines:
+PolyRAG includes a complete suite of unit tests verifying all chunkers, stores, pipelines, and the DI container:
 
 ```bash
 pytest tests
