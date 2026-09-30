@@ -92,41 +92,42 @@ pip install "polyrag[all]"
 
 ## 🚀 Quick Start
 
-### 1. Instant Setup from Environment
+### 1. Instant Setup from Environment (`PolyRAG`)
 
 ```python
-from polyrag import RAGService
+from polyrag import PolyRAG
 
 # Automatically loads configuration from environment variables (.env)
-service = RAGService.from_env()
+app = PolyRAG.from_env()
 
-# Ingest raw text, a file, or an entire folder
-service.ingest("RFC 1035 specifies DNS domain name syntax.", source="rfc1035.txt")
-service.ingest_file("data/rfc9000.txt")
-service.ingest_directory("docs/", glob_pattern="*.txt")
+# Ingest raw text, a file, or an entire folder into the shared store
+app.ingest("RFC 1035 specifies DNS domain name syntax.", source="rfc1035.txt")
+app.ingest_file("data/rfc9000.txt")
+app.ingest_directory("docs/", glob_pattern="*.txt")
 
-# End-to-end question answering
-response = service.query("How does DNS translate domain names?")
+# End-to-end question answering (convenience shortcut)
+response = app.query("How does DNS translate domain names?")
 print("Answer:", response.answer)
 print("Sources:", response.sources)
 ```
 
 ---
 
-### 2. Upgrading Through the Pipeline Hierarchy
+### 2. Manufacturing Across the Pipeline Hierarchy
 
-Upgrade your pipeline strategy in 1 line as question complexity increases:
+Manufacture the exact pipeline strategy you need from the configured setup:
 
 ```python
 # Level 1: Standard 1-Shot RAG
-naive_res = service.query("What is DNS?")
+naive = app.create_naive_rag()
+naive_res = naive.query("What is DNS?")
 
 # Level 2: Advanced RAG (Multi-Query Expansion & RRF Re-ranking)
-advanced = service.create_advanced_rag(num_expanded_queries=3, top_k=5)
+advanced = app.create_advanced_rag(num_expanded_queries=3, top_k=5)
 advanced_res = advanced.query("How does DNS handle packet truncation?")
 
 # Level 3: Agentic RAG (Autonomous Multi-Round Loop & Fused Reflection)
-agentic = service.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
+agentic = app.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
 agentic_res = agentic.query(
     "What transport protocol does HTTP/3 rely on, and how does connection migration work?"
 )
