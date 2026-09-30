@@ -55,8 +55,8 @@ service = RAGService.from_env()
 service.ingest("HTTP/3 is built on the QUIC transport protocol (RFC 9000).", source="rfc9114.txt")
 service.ingest("QUIC handles connection migration using Connection IDs across IP changes.", source="rfc9000.txt")
 
-# 2. Upgrade to Agentic RAG
-agentic = service.as_agentic(max_rounds=2, top_k=3, verbose=True)
+# 2. Create Agentic RAG
+agentic = service.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
 
 # 3. Multi-hop query requiring information from both documents
 response = agentic.query(
