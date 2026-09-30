@@ -47,26 +47,29 @@ for r in results:
 
 ---
 
-## 2. Production Service Facade (`RAGService`)
+## 2. Central Application Context (`PolyRAG`)
 
-When interacting with LLMs (OpenAI, Azure OpenAI), `RAGService` provides an end-to-end facade:
+`PolyRAG` serves as the central setup orchestrator and pipeline factory:
+- Configures default embeddings, vector store, and LLM from `.env` in 1 line.
+- Manages shared document ingestion into the underlying vector store.
+- Manufactures specialized pipelines ([`NaiveRAG`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/pipelines/naive.py), [`AdvancedRAG`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/pipelines/advanced.py), [`AgenticRAG`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/pipelines/agentic.py), [`ReActAgent`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/pipelines/react.py)).
 
 ```python
 import os
-from polyrag import RAGService
+from polyrag import PolyRAG
 
 os.environ["OPENAI_API_KEY"] = "sk-..."
 os.environ["MODEL_NAME"] = "gpt-4o-mini"
 
 # Automatic initialization from environment
-service = RAGService.from_env()
+app = PolyRAG.from_env()
 
-# Ingest single files or entire folders
-service.ingest_file("data/architecture_spec.txt")
-service.ingest_directory("docs/", glob_pattern="*.txt")
+# Ingest single files or entire folders into the shared store
+app.ingest_file("data/architecture_spec.txt")
+app.ingest_directory("docs/", glob_pattern="*.txt")
 
-# End-to-end question answering
-response = service.query("What are the main communication protocols?")
+# End-to-end question answering (convenience shortcut)
+response = app.query("What are the main communication protocols?")
 print("Answer:", response.answer)
 print("Sources:", response.sources)
 ```
@@ -75,18 +78,19 @@ print("Sources:", response.sources)
 
 ## 3. Scaling Through the RAG Hierarchy
 
-As question complexity grows, upgrade your pipeline seamlessly:
+As question complexity grows, manufacture specialized pipelines from the configured `PolyRAG` context:
 
 ```python
 # Level 1: Standard 1-Shot RAG
-naive_response = service.query("What is DNS?")
+naive = app.create_naive_rag()
+naive_response = naive.query("What is DNS?")
 
 # Level 2: Advanced RAG (Multi-Query Expansion & RRF Re-ranking)
-advanced = service.create_advanced_rag(num_expanded_queries=3, top_k=5)
+advanced = app.create_advanced_rag(num_expanded_queries=3, top_k=5)
 advanced_response = advanced.query("How does DNS handle packet truncation?")
 
 # Level 3: Agentic RAG (Autonomous Planning, Multi-Round Loop & Fused Reflection)
-agentic = service.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
+agentic = app.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
 agentic_response = agentic.query(
     "Compare how DNS and QUIC handle packet fallback and connection recovery."
 )
