@@ -29,6 +29,18 @@
 
 ---
 
+## 📚 Documentation
+
+Detailed documentation is available in the [`docs/`](docs/) directory:
+
+- **[Getting Started](docs/getting-started/)**: [Installation](docs/getting-started/installation.md) & [Quickstart](docs/getting-started/quickstart.md)
+- **[Configuration](docs/configuration/)**: [Environment Variables](docs/configuration/environment.md) & [Custom Pipelines](docs/configuration/custom-pipeline.md)
+- **[Guides](docs/guides/)**: [Naive RAG](docs/guides/naive-rag.md), [Agentic RAG](docs/guides/agentic-rag.md), & [ReAct Agent](docs/guides/react-agent.md)
+- **[API Reference](docs/api-reference/)**: [Core Entities](docs/api-reference/core.md) & [Services](docs/api-reference/service.md)
+- **[Roadmap](docs/roadmap/)**: [GraphRAG & Hybrid Search](docs/roadmap/graphrag.md)
+
+---
+
 ## 📦 Installation
 
 ```bash
