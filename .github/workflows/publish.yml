@@ -1,0 +1,89 @@
+name: Publish to PyPI 🚀
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test across Python versions
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[all,dev]
+
+      - name: Run test suite
+        run: |
+          pytest tests/
+
+  build:
+    name: Build Distribution Packages
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build & validation tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+
+      - name: Verify package integrity
+        run: |
+          twine check dist/*
+
+      - name: Store distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: polyrag-dist
+          path: dist/
+          retention-days: 5
+
+  publish:
+    name: Publish to Official PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Enables PyPI Trusted Publishing (OIDC)
+
+    steps:
+      - name: Retrieve distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: polyrag-dist
+          path: dist/
+
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Works with either PyPI Trusted Publishing (OIDC) or a Repository Secret
+          password: ${{ secrets.PYPI_API_TOKEN }}
