@@ -6,14 +6,16 @@ import time
 from typing import Any
 
 from polyrag.core.interfaces import (
+    BaseChunker,
     BaseEmbeddingModel,
     BaseLLMClient,
     BaseVectorStore,
 )
 from polyrag.core.models import AgentAction, AgentResponse, AgentStep
+from polyrag.pipelines.base import BaseRAG
 
 
-class ReActAgent:
+class ReActAgent(BaseRAG):
     """
     ReAct Agent implementing a structured Thought-Action-Observation loop
     using tool invocation to solve single-hop and multi-hop queries.
@@ -24,13 +26,17 @@ class ReActAgent:
         llm_client: BaseLLMClient,
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
+        chunker: BaseChunker | None = None,
         max_steps: int = 4,
         default_top_k: int = 5,
         verbose: bool = False,
     ) -> None:
-        self.llm_client = llm_client
-        self.embedding_model = embedding_model
-        self.vector_store = vector_store
+        super().__init__(
+            embedding_model=embedding_model,
+            vector_store=vector_store,
+            llm_client=llm_client,
+            chunker=chunker,
+        )
         self.max_steps = max_steps
         self.default_top_k = default_top_k
         self.verbose = verbose
@@ -240,3 +246,9 @@ Rules:
     def query(self, question: str, **kwargs: Any) -> AgentResponse:
         """Alias for execute."""
         return self.execute(question, **kwargs)
+
+
+# Alias for consistent RAG hierarchy naming
+ReActRAG = ReActAgent
+
+__all__ = ["ReActAgent", "ReActRAG"]

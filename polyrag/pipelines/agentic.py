@@ -4,15 +4,17 @@ import time
 from typing import Any
 
 from polyrag.core.interfaces import (
+    BaseChunker,
     BaseEmbeddingModel,
     BaseLLMClient,
     BaseVectorStore,
 )
 from polyrag.core.models import RAGResponse
 from polyrag.exceptions import RetrievalError
+from polyrag.pipelines.base import BaseRAG
 
 
-class AgenticRAG:
+class AgenticRAG(BaseRAG):
     """
     Agentic RAG pipeline featuring:
     1. Retrieval Planning & Semantic Query Rewriting
@@ -26,13 +28,17 @@ class AgenticRAG:
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
         llm_client: BaseLLMClient,
+        chunker: BaseChunker | None = None,
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,
     ) -> None:
-        self.embedding_model = embedding_model
-        self.vector_store = vector_store
-        self.llm_client = llm_client
+        super().__init__(
+            embedding_model=embedding_model,
+            vector_store=vector_store,
+            llm_client=llm_client,
+            chunker=chunker,
+        )
         self.top_k = top_k
         self.max_rounds = max_rounds
         self.verbose = verbose
