@@ -1,61 +1,54 @@
 # Advanced RAG Guide ⚡
 
-**Advanced RAG** extends the foundational `BaseRAG` pipeline by introducing **Pre-Retrieval** (Multi-Query Expansion) and **Post-Retrieval** (Reciprocal Rank Fusion and Re-ranking) strategies to overcome vector embedding blind spots and the "Lost in the Middle" phenomenon.
+The **Advanced RAG** (`polyrag.AdvancedRAG`) pipeline enhances `BaseRAG` with **Pre-Retrieval** and **Post-Retrieval** optimizations to overcome vector space sensitivity and lexical mismatch.
 
 ---
 
-## The RAG Class Hierarchy
-
-PolyRAG implements a strict object-oriented class hierarchy rooted in `BaseRAG`:
+## 1. Architectural Workflow
 
 ```
-                    ┌─────────────────────────┐
-                    │         BaseRAG         │
-                    │  (Abstract Base Class)  │
-                    └────────────┬────────────┘
-                                 │
-         ┌───────────────────────┼───────────────────────┐
-         ▼                       ▼                       ▼
-  ┌──────────────┐        ┌──────────────┐        ┌──────────────┐
-  │   NaiveRAG   │        │ AdvancedRAG  │        │  AgenticRAG  │
-  │ (1-Shot RAG) │        │ (Expand/RRF) │        │ (Reflection) │
-  └──────────────┘        └──────────────┘        └──────┬───────┘
-                                                         │
-                                                         ▼
-                                                  ┌──────────────┐
-                                                  │  ReActAgent  │
-                                                  │(Tool Action) │
-                                                  └──────────────┘
+[User Question]
+       │
+       ▼ (1. Pre-Retrieval: Query Expansion)
+[Expanded Queries Q1, Q2, Q3]
+       │
+       ▼ (2. Multi-Query Parallel Retrieval)
+[Search Run 1]    [Search Run 2]    [Search Run 3]
+       │                 │                 │
+       └─────────────────┼─────────────────┘
+                         ▼
+        (3. Post-Retrieval: Reciprocal Rank Fusion)
+              RRF Score = ∑ 1 / (60 + rank)
+                         │
+                         ▼
+             [Fused & Re-Ranked Chunks]
+                         │
+                         ▼ (4. Context Assembly & Prompting)
+                 [Grounded LLM Answer]
 ```
-
-All derived classes inherit common document ingestion (`ingest_text`, `ingest_file`, `ingest_directory`), vector search (`retrieve`), and context formatting (`format_context`) from `BaseRAG`.
 
 ---
 
-## 🌟 Advanced RAG Optimizations
+## 2. Key Optimizations
 
-### 1. Pre-Retrieval: Multi-Query Expansion
-Natural language queries can miss relevant chunks due to wording differences. `AdvancedRAG` generates multiple diverse search queries capturing synonyms and technical perspectives before searching:
+### Pre-Retrieval: Multi-Query Expansion
+Users rarely phrase questions using the exact terminology present in technical documents. `AdvancedRAG` generates $N$ alternative queries capturing:
+- Technical synonyms and acronyms
+- Rephrased sentence structures
+- Sub-domain keywords
 
-```
-"How to secure HTTP?" ──► [ "How to secure HTTP?",
-                            "TLS HTTPS encryption handshake",
-                            "RFC 8446 transport security best practices" ]
-```
+### Post-Retrieval: Reciprocal Rank Fusion (RRF)
+Instead of relying on a single vector distance score, PolyRAG merges candidate lists using Reciprocal Rank Fusion:
 
-### 2. Retrieval: Multi-Query Search
-Executes vector searches across all generated query variations.
+$$RRF(d) = \sum_{q \in Q} \frac{1}{k + \text{rank}(d, q)}$$
 
-### 3. Post-Retrieval: Reciprocal Rank Fusion (RRF)
-Merges ranked candidate lists from all queries using RRF:
-
-$$\text{RRF Score}(d) = \sum_{q} \frac{1}{k + \text{rank}(d, q)}$$
-
-Where $k = 60$. Items appearing across multiple query runs receive higher confidence and rank top in the prompt context.
+- $k = 60$ (standard smoothing constant).
+- Documents appearing in multiple query result sets rise to the top.
+- Suppresses false-positive chunk matches that scored high on only one outlier query.
 
 ---
 
-## Usage Example
+## 3. Code Example
 
 ```python
 from polyrag import (
@@ -66,21 +59,25 @@ from polyrag import (
     RAGService,
 )
 
-# 1. Direct instantiation
+# Option A: Standalone pipeline
 advanced = AdvancedRAG(
     embedding_model=SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2"),
     vector_store=InMemoryVectorStore(),
     llm_client=OpenAILLM(model_name="gpt-4o-mini"),
     num_expanded_queries=3,
     top_k=5,
+    min_relevance_score=0.1,
+    verbose=True,
 )
 
-# 2. Or upgrade an existing RAGService instance in 1 line:
+# Option B: Upgrading an existing RAGService in 1 line
 service = RAGService.from_env()
 advanced = service.as_advanced(num_expanded_queries=3, top_k=5)
 
-# 3. Query
-response = advanced.query("Explain connection migration in QUIC.")
-print(response.answer)
-print(response.reasoning_summary)
+# Execute query
+response = advanced.query("What mechanism does DNS use to handle UDP packet overflow?")
+
+print("Answer:", response.answer)
+print("Execution Summary:", response.reasoning_summary)
+print("LLM Calls Made:", response.llm_calls)
 ```
