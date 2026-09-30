@@ -121,6 +121,29 @@ class RAGService:
             model_name=model_name,
         )
 
+    @classmethod
+    def from_container(cls, container: Any) -> "RAGService":
+        """Instantiate RAGService using dependencies resolved from a DI Container."""
+        from polyrag.core.interfaces import (
+            BaseChunker,
+            BaseEmbeddingModel,
+            BaseLLMClient,
+            BaseVectorStore,
+        )
+
+        llm = container.resolve(BaseLLMClient)
+        chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else RecursiveCharacterChunker()
+        emb = container.resolve(BaseEmbeddingModel)
+        vdb = container.resolve(BaseVectorStore)
+
+        return cls(
+            client=llm,
+            chunking_service=chunker,
+            embedding_service=emb,
+            vector_db=vdb,
+            model_name=getattr(llm, "model_name", None),
+        )
+
     def ingest(
         self,
         text: str,
@@ -235,6 +258,23 @@ class AgenticRAGService:
             persist_dir=persist_dir,
             collection_name=collection_name,
         )
+        return cls(
+            rag_service=base_rag,
+            top_k=top_k,
+            max_rounds=max_rounds,
+            verbose=verbose,
+        )
+
+    @classmethod
+    def from_container(
+        cls,
+        container: Any,
+        top_k: int = 3,
+        max_rounds: int = 2,
+        verbose: bool = False,
+    ) -> "AgenticRAGService":
+        """Instantiate AgenticRAGService using dependencies resolved from a DI Container."""
+        base_rag = RAGService.from_container(container)
         return cls(
             rag_service=base_rag,
             top_k=top_k,

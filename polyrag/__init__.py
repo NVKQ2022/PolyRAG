@@ -4,6 +4,7 @@ polyrag - A modular, extensible, and production-ready Retrieval-Augmented Genera
 
 from polyrag.chunkers.fixed_size import FixedSizeChunker
 from polyrag.chunkers.recursive import RecursiveCharacterChunker
+from polyrag.container import Container
 from polyrag.core.interfaces import (
     BaseChunker,
     BaseEmbeddingModel,
@@ -39,6 +40,8 @@ from polyrag.vector_stores.memory import InMemoryVectorStore
 __version__ = "0.1.0"
 
 __all__ = [
+    # Dependency Injection
+    "Container",
     # Top-level service facades
     "RAGService",
     "AgenticRAGService",
