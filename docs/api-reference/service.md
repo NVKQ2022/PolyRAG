@@ -62,9 +62,11 @@ def from_container(cls, container: Any) -> RAGService: ...
 - `format_context(search_results: list[dict]) -> str`
 - `query(question: str, top_k: int = 5) -> RAGResponse`
 
-### Pipeline Conversion
-- `as_advanced(top_k=5, num_expanded_queries=3, min_relevance_score=0.0, verbose=False) -> AdvancedRAG`
-- `as_agentic(top_k=3, max_rounds=2, verbose=False) -> AgenticRAGService`
+### Pipeline Creation & Factory Methods
+- `create_advanced_rag(top_k=5, num_expanded_queries=3, min_relevance_score=0.0, verbose=False) -> AdvancedRAG`
+- `create_agentic_rag(top_k=3, max_rounds=2, verbose=False) -> AgenticRAGService`
+- `create_react_agent(max_steps=4, default_top_k=5, verbose=False) -> ReActAgent`
+- *(Deprecated aliases: `as_advanced(...)`, `as_agentic(...)`)*
 
 ---
 
