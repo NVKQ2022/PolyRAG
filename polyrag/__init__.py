@@ -40,7 +40,7 @@ from polyrag.service import AgenticRAGService, RAGService
 from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     # Application Context & Setup Factory
