@@ -4,11 +4,11 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 
 ---
 
-## 🗂️ Table of Contents
+## 🗂️ Documentation Directory
 
 ### 1. [Getting Started](getting-started/)
-- [Installation Guide](getting-started/installation.md): Environment setup, minimal install, and optional dependency extras (`[openai]`, `[chroma]`, `[embeddings]`, `[all]`).
-- [Quickstart Guide](getting-started/quickstart.md): 5-minute hands-on walkthrough with zero-API-key and end-to-end examples.
+- [Installation Guide](getting-started/installation.md): Environment requirements, minimal installation, and optional dependency extras (`[openai]`, `[chroma]`, `[embeddings]`, `[all]`).
+- [Quickstart Guide](getting-started/quickstart.md): 5-minute hands-on walkthrough with zero-API-key and production examples.
 
 ### 2. [Configuration](configuration/)
 - [Environment Configuration](configuration/environment.md): Setting up `.env`, API keys, model parameters, and Azure OpenAI endpoints.
@@ -16,14 +16,16 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 - [Dependency Injection Guide](configuration/dependency-injection.md): Using the `Container` to register, resolve, and wire components and pipelines.
 
 ### 3. [Architecture & Guides](guides/)
+- [The RAG Class Hierarchy](guides/class-hierarchy.md): Comprehensive architectural guide to the `BaseRAG` object-oriented hierarchy.
 - [Naive RAG Guide](guides/naive-rag.md): The standard Retrieve-then-Read pipeline, optimal use cases, and limitations.
-- [Advanced RAG Guide](guides/advanced-rag.md): Pre-retrieval query expansion, multi-query fusion, and RRF re-ranking.
-- [Agentic RAG Guide](guides/agentic-rag.md): Query rewriting, iterative multi-round retrieval, deduplication, and fused self-reflection.
-- [ReAct Agent Guide](guides/react-agent.md): Autonomous Thought-Action-Observation reasoning loop with tool execution.
+- [Advanced RAG Guide](guides/advanced-rag.md): Pre-retrieval query expansion, multi-query parallel search, and RRF re-ranking.
+- [Agentic RAG Guide](guides/agentic-rag.md): Planning, semantic query rewriting, iterative multi-round retrieval, deduplication, and fused self-reflection.
+- [ReAct Agent Guide](guides/react-agent.md): Autonomous Thought-Action-Observation reasoning loop with dynamic tool execution.
 
 ### 4. [API Reference](api-reference/)
 - [Core Models & Interfaces](api-reference/core.md): Domain dataclasses (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`), abstract interfaces, and exceptions.
-- [Services Reference](api-reference/service.md): Complete method signatures for `RAGService` and `AgenticRAGService`.
+- [Pipelines Reference](api-reference/pipelines.md): Complete method signatures for `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
+- [Services & DI Container](api-reference/service.md): Complete method signatures for `RAGService`, `AgenticRAGService`, and `Container`.
 
 ### 5. [Roadmap](roadmap/)
 - [GraphRAG & Hybrid Search](roadmap/graphrag.md): Architecture plans for knowledge graph extraction, community summarization, and Reciprocal Rank Fusion.
