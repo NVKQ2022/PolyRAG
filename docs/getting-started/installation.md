@@ -1,88 +1,93 @@
-# Installation Guide
+# Installation & Setup Guide
 
-This guide walks you through installing **PolyRAG** and configuring its optional dependencies for various environments.
-
----
-
-## Prerequisites
-
-- **Python**: Version `3.10`, `3.11`, or `3.12`.
-- **Package Manager**: `pip` (version 21.0 or higher recommended).
+Welcome to **PolyRAG**! This guide covers installation options, optional dependency bundles, virtual environment configuration, and verification.
 
 ---
 
-## Basic Installation
+## 1. System Requirements
 
-To install the minimal PolyRAG package (includes core interfaces, dataclasses, and zero-dependency `InMemoryVectorStore`):
+- **Python**: `>= 3.10` (tested on Python `3.10`, `3.11`, and `3.12`)
+- **Operating System**: Linux, macOS, or Windows
+- **Package Manager**: `pip` (version `21.0+` recommended)
+
+---
+
+## 2. Basic Installation
+
+Install the lightweight core package with zero external database dependencies:
 
 ```bash
 pip install polyrag
 ```
 
+The core installation includes:
+- The full `BaseRAG` class hierarchy (`NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `ReActAgent`).
+- The Dependency Injection `Container`.
+- Document chunkers (`FixedSizeChunker`, `RecursiveCharacterChunker`).
+- Zero-dependency `InMemoryVectorStore` using cosine similarity.
+- Data transfer models (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`).
+
 ---
 
-## Optional Dependency Bundles
+## 3. Optional Dependency Bundles
 
-PolyRAG is designed to be lightweight by default. Depending on the vector stores, embedding providers, or LLM clients you use, install the relevant extra bundle:
+PolyRAG uses optional extras so your production builds stay slim. Install only what you need:
 
-### 1. OpenAI LLM & Embeddings Support
-Includes official `openai` SDK bindings:
+| Extra | Command | Description |
+| :--- | :--- | :--- |
+| **`[openai]`** | `pip install "polyrag[openai]"` | Official OpenAI SDK for LLM completions & embeddings |
+| **`[chroma]`** | `pip install "polyrag[chroma]"` | ChromaDB vector database for persistent local or remote collections |
+| **`[embeddings]`** | `pip install "polyrag[embeddings]"` | HuggingFace `sentence-transformers` & `torch` for offline local embeddings |
+| **`[all]`** | `pip install "polyrag[all]"` | Full production bundle with all vector stores, LLMs, and embeddings |
+| **`[dev]`** | `pip install "polyrag[dev]"` | Developer tools (`pytest`, `build`, `twine`) |
+
+---
+
+## 4. Setting up a Virtual Environment
+
+It is recommended to run PolyRAG in an isolated virtual environment:
+
+### Linux / macOS
 ```bash
-pip install "polyrag[openai]"
-```
-
-### 2. ChromaDB Vector Database
-Includes `chromadb` client for persistent disk storage or client/server mode:
-```bash
-pip install "polyrag[chroma]"
-```
-
-### 3. Local SentenceTransformers & Torch
-Includes `sentence-transformers` and `torch` for local, offline embeddings without API costs:
-```bash
-pip install "polyrag[embeddings]"
-```
-
-### 4. Full Production Bundle
-Installs all supported adapters, vector stores, embedding models, and API frameworks:
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install "polyrag[all]"
 ```
 
-### 5. Development & Testing Tools
-Includes `pytest`, `build`, and `twine` for contributors:
-```bash
-pip install "polyrag[dev]"
+### Windows (PowerShell)
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install "polyrag[all]"
 ```
 
 ---
 
-## Installing from Source (Editable Mode)
+## 5. Development Mode (Editable Install)
 
-For local development or contributing to PolyRAG:
+To develop or contribute to PolyRAG:
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/NVKQ2022/PolyRAG.git
 cd PolyRAG
 
-# 2. Create and activate a virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# 3. Install in editable mode with development dependencies
+# Create environment and install in editable mode
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e ".[all,dev]"
 
-# 4. Verify test suite passes
+# Run unit tests to verify setup
 pytest tests
 ```
 
 ---
 
-## Verification
+## 6. Verifying Installation
 
-Run a quick Python command to verify that PolyRAG is correctly installed:
+Verify that the library and CLI imports resolve correctly:
 
 ```bash
-python -c "import polyrag; print(f'PolyRAG {polyrag.__version__} successfully installed!')"
+python -c "import polyrag; print(f'PolyRAG {polyrag.__version__} successfully imported!')"
 ```
