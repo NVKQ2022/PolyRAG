@@ -6,11 +6,11 @@ The `polyrag.vector_stores` module manages nearest-neighbor vector indexing, doc
 
 ## 1. Available Vector Stores
 
-| Vector Store | Dependencies | Persistence | Best Used For |
-| :--- | :--- | :--- | :--- |
-| **`InMemoryVectorStore`** | Zero dependencies | RAM only (ephemeral) | Unit tests, quick prototypes, air-gapped dev |
-| **`ChromaVectorStore`** | `chromadb>=0.4.0` | Disk / Local SQLite | Embedded local apps, desktop tools |
-| **`MilvusVectorStore`** | `pymilvus>=2.4.0` | Milvus Lite file, Server, or Cloud | Production scale, enterprise clusters, Zilliz Cloud |
+| Vector Store | Detailed Guide | Dependencies | Persistence | Best Used For |
+| :--- | :--- | :--- | :--- | :--- |
+| **`InMemoryVectorStore`** | [Guide](vector_stores/memory.md) | Zero dependencies | RAM only (ephemeral) | Unit tests, quick prototypes, air-gapped dev |
+| **`ChromaVectorStore`** | [Guide](vector_stores/chroma.md) | `chromadb>=0.4.0` | Disk / Local SQLite | Embedded local apps, desktop tools |
+| **`MilvusVectorStore`** | [Guide](vector_stores/milvus.md) | `pymilvus>=2.4.0` | Milvus Lite file, Server, or Cloud | Production scale, enterprise clusters, Zilliz Cloud |
 
 ---
 

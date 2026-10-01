@@ -43,7 +43,7 @@ PolyRAG is architected into clean, decoupled, single-responsibility modules foll
 | **`polyrag.core`** | Domain models, abstract ports, and exceptions | `Document`, `Chunk`, `SearchResult`, `RAGResponse`, `BaseChunker`, `BaseEmbeddingModel`, `BaseVectorStore`, `BaseLLMClient` | [Core Guide](core.md) |
 | **`polyrag.chunkers`** | Text segmenting and token boundary management | `FixedSizeChunker`, `RecursiveCharacterChunker` | [Chunkers Guide](chunkers.md) |
 | **`polyrag.embeddings`** | Dense vector representations of text | `SentenceTransformerEmbedding`, `OpenAIEmbedding` | [Embeddings Guide](embeddings.md) |
-| **`polyrag.vector_stores`**| Nearest-neighbor vector index and metadata storage | `InMemoryVectorStore`, `ChromaVectorStore`, `MilvusVectorStore` | [Vector Stores Guide](vector-stores.md) |
+| **`polyrag.vector_stores`**| Nearest-neighbor vector index and metadata storage | `InMemoryVectorStore`, `ChromaVectorStore`, `MilvusVectorStore` | [Overview](vector_stores/README.md) · [Chroma](vector_stores/chroma.md) · [Milvus](vector_stores/milvus.md) · [Memory](vector_stores/memory.md) |
 | **`polyrag.llms`** | LLM completion, structured JSON parsing, and chat | `OpenAILLM` (supports OpenAI, Azure, and vLLM) | [LLMs Guide](llms.md) |
 | **`polyrag.pipelines`** | End-to-end RAG workflows & reasoning paradigms | `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `ReActAgent` | [Pipelines Guide](pipelines.md) |
 | **`polyrag.container`** | Dependency Injection container and composition root | `Container` | [Container Guide](container.md) |

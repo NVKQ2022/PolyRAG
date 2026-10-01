@@ -28,7 +28,7 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 - [Core Module](modules/core.md): Domain models (`Document`, `Chunk`, `SearchResult`, `RAGResponse`), abstract ports, and exceptions.
 - [Chunkers Module](modules/chunkers.md): `FixedSizeChunker` and `RecursiveCharacterChunker` algorithms and configuration.
 - [Embeddings Module](modules/embeddings.md): `SentenceTransformerEmbedding` (local offline) and `OpenAIEmbedding` (cloud).
-- [Vector Stores Module](modules/vector-stores.md): `InMemoryVectorStore`, `ChromaVectorStore`, and `MilvusVectorStore`.
+- [Vector Stores Module](modules/vector_stores/README.md): [ChromaDB](modules/vector_stores/chroma.md), [Milvus](modules/vector_stores/milvus.md), and [InMemory](modules/vector_stores/memory.md).
 - [LLMs Module](modules/llms.md): `OpenAILLM` with support for OpenAI, Azure OpenAI, and local inference engines.
 - [Pipelines Module](modules/pipelines.md): `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
 - [Container Module](modules/container.md): Inversion of Control (IoC) Dependency Injection `Container`.
