@@ -16,6 +16,7 @@ from polyrag.core.interfaces import (
 from polyrag.embeddings import resolve_embedding_model
 from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
 from polyrag.exceptions import ConfigurationError
+from polyrag.llms import resolve_llm_client
 from polyrag.llms.openai import OpenAILLM
 from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.naive import NaiveRAG
@@ -83,6 +84,31 @@ class Container:
         """Check if an interface has a registered instance or factory."""
         return interface in self._singletons or interface in self._factories
 
+    @property
+    def chunker(self) -> BaseChunker:
+        """Resolve registered chunker."""
+        return self.resolve(BaseChunker)
+
+    @property
+    def embedding_model(self) -> BaseEmbeddingModel:
+        """Resolve registered embedding model."""
+        return self.resolve(BaseEmbeddingModel)
+
+    @property
+    def vector_store(self) -> BaseVectorStore:
+        """Resolve registered vector store."""
+        return self.resolve(BaseVectorStore)
+
+    @property
+    def llm_client(self) -> BaseLLMClient:
+        """Resolve registered LLM client."""
+        return self.resolve(BaseLLMClient)
+
+    @property
+    def chat_model(self) -> BaseLLMClient:
+        """Alias for llm_client resolving registered ChatModel / LLM client."""
+        return self.resolve(BaseLLMClient)
+
     # =========================================================================
     # Factory Constructors
     # =========================================================================
@@ -93,17 +119,20 @@ class Container:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> "Container":
         """Initialize container with optional custom dependencies or sensible defaults."""
         container = cls()
 
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
         # Defaults
         chunker_instance = resolve_chunker(chunker)
         embedding_instance = resolve_embedding_model(embedding if embedding is not None else embedding_model)
         vector_store_instance = vector_store or InMemoryVectorStore()
-        llm_instance = llm_client or OpenAILLM()
+        llm_instance = resolve_llm_client(target_llm)
 
         container.register_instance(BaseChunker, chunker_instance)
         container.register_instance(BaseEmbeddingModel, embedding_instance)
@@ -160,6 +189,9 @@ class Container:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> NaiveRAG:
         """Construct NaiveRAG pipeline using injected dependencies."""
         resolved_chunker = (
@@ -173,10 +205,16 @@ class Container:
             if target_emb is not None
             else self.resolve(BaseEmbeddingModel)
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.resolve(BaseLLMClient)
+        )
         return NaiveRAG(
             embedding_model=resolved_embedding,
             vector_store=self.resolve(BaseVectorStore),
-            llm_client=self.resolve(BaseLLMClient),
+            llm_client=resolved_llm,
             chunker=resolved_chunker,
         )
 
@@ -189,6 +227,9 @@ class Container:
         min_relevance_score: float = 0.0,
         verbose: bool = False,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> Any:
         """Construct AdvancedRAG pipeline using injected dependencies."""
         from polyrag.pipelines.advanced import AdvancedRAG
@@ -203,10 +244,16 @@ class Container:
             if target_emb is not None
             else self.resolve(BaseEmbeddingModel)
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.resolve(BaseLLMClient)
+        )
         return AdvancedRAG(
             embedding_model=resolved_embedding,
             vector_store=self.resolve(BaseVectorStore),
-            llm_client=self.resolve(BaseLLMClient),
+            llm_client=resolved_llm,
             chunker=resolved_chunker,
             top_k=top_k,
             num_expanded_queries=num_expanded_queries,
@@ -222,6 +269,9 @@ class Container:
         max_rounds: int = 2,
         verbose: bool = False,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> AgenticRAG:
         """Construct AgenticRAG pipeline using injected dependencies."""
         resolved_chunker = (
@@ -235,10 +285,16 @@ class Container:
             if target_emb is not None
             else self.resolve(BaseEmbeddingModel)
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.resolve(BaseLLMClient)
+        )
         return AgenticRAG(
             embedding_model=resolved_embedding,
             vector_store=self.resolve(BaseVectorStore),
-            llm_client=self.resolve(BaseLLMClient),
+            llm_client=resolved_llm,
             chunker=resolved_chunker,
             top_k=top_k,
             max_rounds=max_rounds,
@@ -253,6 +309,9 @@ class Container:
         default_top_k: int = 5,
         verbose: bool = False,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> ReActAgent:
         """Construct ReActAgent pipeline using injected dependencies."""
         resolved_chunker = (
@@ -266,8 +325,14 @@ class Container:
             if target_emb is not None
             else self.resolve(BaseEmbeddingModel)
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.resolve(BaseLLMClient)
+        )
         return ReActAgent(
-            llm_client=self.resolve(BaseLLMClient),
+            llm_client=resolved_llm,
             embedding_model=resolved_embedding,
             vector_store=self.resolve(BaseVectorStore),
             chunker=resolved_chunker,

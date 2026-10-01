@@ -26,6 +26,7 @@ from polyrag.core.interfaces import (
 from polyrag.core.models import RAGResponse
 from polyrag.embeddings import resolve_embedding_model
 from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
+from polyrag.llms import resolve_llm_client
 from polyrag.llms.openai import OpenAILLM
 from polyrag.pipelines.advanced import AdvancedRAG
 from polyrag.pipelines.agentic import AgenticRAG
@@ -48,22 +49,26 @@ class PolyRAG:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
         container: Container | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> None:
         target_emb = embedding if embedding is not None else embedding_model
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+
         if container is not None:
             self.container = container
             self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else resolve_chunker(chunker)
             self.embedding_model = container.resolve(BaseEmbeddingModel) if container.is_registered(BaseEmbeddingModel) else resolve_embedding_model(target_emb)
             self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (vector_store or InMemoryVectorStore())
-            self.llm_client = container.resolve(BaseLLMClient) if container.is_registered(BaseLLMClient) else (llm_client or OpenAILLM())
+            self.llm_client = container.resolve(BaseLLMClient) if container.is_registered(BaseLLMClient) else resolve_llm_client(target_llm)
         else:
             self.chunker = resolve_chunker(chunker)
             self.embedding_model = resolve_embedding_model(target_emb)
             self.vector_store = vector_store or InMemoryVectorStore()
-            self.llm_client = llm_client or OpenAILLM()
+            self.llm_client = resolve_llm_client(target_llm)
             self.container = Container.create(
                 chunker=self.chunker,
                 embedding_model=self.embedding_model,
@@ -83,6 +88,7 @@ class PolyRAG:
         self.chunking_service = self.chunker
         self.embedding_service = self.embedding_model
         self.vector_db = self.vector_store
+        self.chat_model = self.llm_client
         self.client = getattr(self.llm_client, "client", self.llm_client)
 
     # -------------------------------------------------------------------------
@@ -114,12 +120,16 @@ class PolyRAG:
         persist_dir: str | Path | None = None,
         collection_name: str = "documents",
         vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
         chunker: BaseChunker | str | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> PolyRAG:
         """Construct a PolyRAG application context with sensible defaults."""
-        llm = llm_client or OpenAILLM(model_name=model_name)
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = resolve_llm_client(target_llm, model_name=model_name)
+
         target_emb = embedding if embedding is not None else embedding_model
         emb = resolve_embedding_model(target_emb)
 
@@ -135,7 +145,7 @@ class PolyRAG:
             chunker=resolve_chunker(chunker),
             embedding_model=emb,
             vector_store=vdb,
-            llm_client=llm,
+            llm_client=resolved_llm,
         )
 
     @classmethod
@@ -304,6 +314,9 @@ class PolyRAG:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> NaiveRAG:
         """Create a NaiveRAG pipeline reusing the configured models and vector store."""
         target_emb = embedding if embedding is not None else embedding_model
@@ -312,10 +325,16 @@ class PolyRAG:
             if target_emb is not None
             else self.embedding_model
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.llm_client
+        )
         return NaiveRAG(
             embedding_model=resolved_embedding,
             vector_store=self.vector_store,
-            llm_client=self.llm_client,
+            llm_client=resolved_llm,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
         )
 
@@ -328,6 +347,9 @@ class PolyRAG:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> AdvancedRAG:
         """Create an AdvancedRAG pipeline with multi-query expansion and RRF fusion."""
         target_emb = embedding if embedding is not None else embedding_model
@@ -336,10 +358,16 @@ class PolyRAG:
             if target_emb is not None
             else self.embedding_model
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.llm_client
+        )
         return AdvancedRAG(
             embedding_model=resolved_embedding,
             vector_store=self.vector_store,
-            llm_client=self.llm_client,
+            llm_client=resolved_llm,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
             top_k=top_k,
             num_expanded_queries=num_expanded_queries,
@@ -355,6 +383,9 @@ class PolyRAG:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> AgenticRAG:
         """Create an AgenticRAG pipeline with planning, rewriting, and fused reflection."""
         target_emb = embedding if embedding is not None else embedding_model
@@ -363,10 +394,16 @@ class PolyRAG:
             if target_emb is not None
             else self.embedding_model
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.llm_client
+        )
         return AgenticRAG(
             embedding_model=resolved_embedding,
             vector_store=self.vector_store,
-            llm_client=self.llm_client,
+            llm_client=resolved_llm,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
             top_k=top_k,
             max_rounds=max_rounds,
@@ -396,6 +433,9 @@ class PolyRAG:
         chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> ReActAgent:
         """Create a ReActAgent pipeline with Thought-Action-Observation loops."""
         target_emb = embedding if embedding is not None else embedding_model
@@ -404,8 +444,14 @@ class PolyRAG:
             if target_emb is not None
             else self.embedding_model
         )
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        resolved_llm = (
+            resolve_llm_client(target_llm)
+            if target_llm is not None
+            else self.llm_client
+        )
         return ReActAgent(
-            llm_client=self.llm_client,
+            llm_client=resolved_llm,
             embedding_model=resolved_embedding,
             vector_store=self.vector_store,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,

@@ -95,3 +95,29 @@ class OpenAILLM(BaseLLMClient):
 
         prompt = "\n".join(f"{m['role'].upper()}: {m['content']}" for m in messages)
         return self.complete(prompt, **kwargs)
+
+    def stream(self, input: Any, **kwargs: Any) -> Any:
+        prompt = input if isinstance(input, str) else str(input)
+        if hasattr(self.client, "chat") and hasattr(self.client.chat, "completions"):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self._model_name,
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True,
+                    **{k: v for k, v in kwargs.items() if k not in ("temperature",)},
+                )
+                for chunk in response:
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    if delta and delta.content:
+                        yield delta.content
+                return
+            except Exception:
+                pass
+
+        yield self.complete(prompt, **kwargs)
+
+
+# Modern LangChain-style naming aliases
+ChatOpenAI = OpenAILLM
+OpenAIChatModel = OpenAILLM
+

@@ -14,6 +14,7 @@ from polyrag.core.interfaces import (
 )
 from polyrag.core.models import AgentResponse, RAGResponse
 from polyrag.embeddings import resolve_embedding_model
+from polyrag.llms import resolve_llm_client
 
 
 class BaseRAG(ABC):
@@ -28,15 +29,20 @@ class BaseRAG(ABC):
         self,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
         chunker: BaseChunker | str | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> None:
         from polyrag.vector_stores.memory import InMemoryVectorStore
 
         self.embedding_model = resolve_embedding_model(embedding if embedding is not None else embedding_model)
         self.vector_store = vector_store if vector_store is not None else InMemoryVectorStore()
-        self.llm_client = llm_client
+
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        self.llm_client = resolve_llm_client(target_llm) if target_llm is not None else None
+        self.chat_model = self.llm_client
         self.chunker = resolve_chunker(chunker)
 
     def ingest_text(

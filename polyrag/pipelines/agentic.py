@@ -27,18 +27,22 @@ class AgenticRAG(BaseRAG):
         self,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
         chunker: BaseChunker | str | None = None,
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> None:
         super().__init__(
             embedding_model=embedding if embedding is not None else embedding_model,
             vector_store=vector_store,
             llm_client=llm_client,
             chunker=chunker,
+            chat_model=chat_model,
+            llm=llm,
         )
         self.top_k = top_k
         self.max_rounds = max_rounds

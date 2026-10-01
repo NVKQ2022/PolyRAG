@@ -3,8 +3,120 @@
 from collections.abc import Iterable
 from typing import Any
 
-from polyrag.core.interfaces import BaseEmbeddingModel
-from polyrag.core.models import Document as PolyDocument
+from polyrag.core.interfaces import BaseEmbeddingModel, BaseLLMClient
+from polyrag.core.models import AIMessage, Document as PolyDocument
+
+
+class LangChainChatModelAdapter(BaseLLMClient):
+    """
+    Adapter bridging LangChain's modern BaseChatModel (ChatOpenAI, ChatAnthropic,
+    ChatOllama, ChatGoogleGenerativeAI, etc.) to PolyRAG's BaseLLMClient interface.
+
+    Enables developers to pass native LangChain chat models directly into PolyRAG,
+    maintaining full compatibility with invoke(), complete(), complete_json(), and chat().
+    """
+
+    def __init__(self, chat_model: Any, model_name: str | None = None) -> None:
+        if not hasattr(chat_model, "invoke"):
+            raise TypeError(
+                "Provided object does not conform to LangChain ChatModel interface "
+                "(missing 'invoke' method)."
+            )
+        self.chat_model = chat_model
+        self._model_name = (
+            model_name
+            or getattr(chat_model, "model_name", None)
+            or getattr(chat_model, "model", None)
+            or getattr(chat_model, "model_id", None)
+            or chat_model.__class__.__name__
+        )
+
+    @property
+    def model_name(self) -> str:
+        return str(self._model_name)
+
+    def complete(self, prompt: str, **kwargs: Any) -> str:
+        """Execute text completion via chat_model.invoke(prompt)."""
+        response = self.chat_model.invoke(prompt, **kwargs)
+        if hasattr(response, "content"):
+            return str(response.content).strip()
+        return str(response).strip()
+
+    def complete_json(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
+        """Execute and parse JSON output from model."""
+        import json
+        import re
+
+        raw_text = self.complete(prompt, **kwargs)
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
+        candidate = match.group(1) if match else raw_text
+        candidate = candidate.strip()
+
+        first_brace = candidate.find("{")
+        last_brace = candidate.rfind("}")
+        if first_brace != -1 and last_brace != -1:
+            candidate = candidate[first_brace : last_brace + 1]
+
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            return {}
+
+    def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
+        """Execute conversational chat via chat_model.invoke(messages)."""
+        tuple_messages = []
+        for m in messages:
+            role = m.get("role", "user")
+            if role in ("assistant", "ai"):
+                r = "ai"
+            elif role in ("human", "user"):
+                r = "human"
+            elif role == "system":
+                r = "system"
+            else:
+                r = str(role)
+            tuple_messages.append((r, m.get("content", "")))
+
+        response = self.chat_model.invoke(tuple_messages, **kwargs)
+        if hasattr(response, "content"):
+            return str(response.content).strip()
+        return str(response).strip()
+
+    def invoke(self, input: Any, **kwargs: Any) -> AIMessage:
+        """Direct delegation to underlying LangChain model's invoke()."""
+        response = self.chat_model.invoke(input, **kwargs)
+        if isinstance(response, AIMessage):
+            return response
+        if hasattr(response, "content"):
+            tool_calls = getattr(response, "tool_calls", [])
+            return AIMessage(content=str(response.content), tool_calls=tool_calls)
+        return AIMessage(content=str(response))
+
+    def stream(self, input: Any, **kwargs: Any) -> Any:
+        """Stream chunks from underlying LangChain model."""
+        if hasattr(self.chat_model, "stream"):
+            for chunk in self.chat_model.stream(input, **kwargs):
+                if isinstance(chunk, AIMessage):
+                    yield chunk
+                elif hasattr(chunk, "content"):
+                    yield AIMessage(
+                        content=str(chunk.content),
+                        tool_calls=getattr(chunk, "tool_calls", []),
+                    )
+                else:
+                    yield AIMessage(content=str(chunk))
+            return
+        yield from super().stream(input, **kwargs)
+
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> Any:
+        """Delegate tool binding to underlying LangChain model."""
+        if hasattr(self.chat_model, "bind_tools"):
+            return LangChainChatModelAdapter(
+                self.chat_model.bind_tools(tools, **kwargs),
+                model_name=self._model_name,
+            )
+        return self
+
 
 
 class LangChainEmbeddingAdapter(BaseEmbeddingModel):

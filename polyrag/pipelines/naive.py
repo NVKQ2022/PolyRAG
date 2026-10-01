@@ -25,15 +25,19 @@ class NaiveRAG(BaseRAG):
         self,
         embedding_model: BaseEmbeddingModel | str | Any | None = None,
         vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient | str | Any | None = None,
         chunker: BaseChunker | str | None = None,
         embedding: BaseEmbeddingModel | str | Any | None = None,
+        chat_model: BaseLLMClient | str | Any | None = None,
+        llm: BaseLLMClient | str | Any | None = None,
     ) -> None:
         super().__init__(
             embedding_model=embedding if embedding is not None else embedding_model,
             vector_store=vector_store,
             llm_client=llm_client,
             chunker=chunker,
+            chat_model=chat_model,
+            llm=llm,
         )
 
     def execute(

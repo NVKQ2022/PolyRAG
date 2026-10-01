@@ -100,3 +100,59 @@ class BaseLLMClient(ABC):
     def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
         """Generate chat response for conversation messages."""
         raise NotImplementedError
+
+    def invoke(self, input: Any, **kwargs: Any) -> Any:
+        """
+        Modern LangChain Runnable invoke interface.
+
+        Accepts:
+        - Plain string prompt
+        - List of chat messages (BaseMessage instances, dicts, or tuples)
+
+        Returns:
+            AIMessage instance containing model output text.
+        """
+        from polyrag.core.models import AIMessage
+
+        if isinstance(input, str):
+            text = self.complete(input, **kwargs)
+            return AIMessage(content=text)
+
+        if isinstance(input, list):
+            normalized: list[dict[str, str]] = []
+            for m in input:
+                if isinstance(m, tuple) and len(m) == 2:
+                    role, content = m
+                    if role in ("human", "user"):
+                        r = "user"
+                    elif role in ("ai", "assistant"):
+                        r = "assistant"
+                    else:
+                        r = str(role)
+                    normalized.append({"role": r, "content": str(content)})
+                elif hasattr(m, "content"):
+                    m_type = getattr(m, "type", "user")
+                    r = "assistant" if m_type == "ai" else ("user" if m_type == "human" else str(m_type))
+                    normalized.append({"role": r, "content": str(getattr(m, "content", ""))})
+                elif isinstance(m, dict):
+                    normalized.append({
+                        "role": str(m.get("role", "user")),
+                        "content": str(m.get("content", "")),
+                    })
+                else:
+                    normalized.append({"role": "user", "content": str(m)})
+
+            text = self.chat(normalized, **kwargs)
+            return AIMessage(content=text)
+
+        text = self.complete(str(input), **kwargs)
+        return AIMessage(content=text)
+
+    def stream(self, input: Any, **kwargs: Any) -> Any:
+        """Stream chunks from the model if supported; yields complete response by default."""
+        yield self.invoke(input, **kwargs)
+
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> Any:
+        """Bind tools to the model for tool-calling workflows."""
+        return self
+

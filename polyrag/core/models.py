@@ -169,3 +169,47 @@ class AgentResponse:
 
     def __getitem__(self, item: str) -> Any:
         return getattr(self, item)
+
+
+@dataclass
+class BaseMessage:
+    """Base class for chat messages conforming to modern LangChain message schemas."""
+
+    content: str
+    additional_kwargs: dict[str, Any] = field(default_factory=dict)
+    response_metadata: dict[str, Any] = field(default_factory=dict)
+    type: str = "base"
+
+    def __str__(self) -> str:
+        return self.content
+
+
+@dataclass
+class HumanMessage(BaseMessage):
+    """Message representing user / human input."""
+
+    type: str = "human"
+
+
+@dataclass
+class AIMessage(BaseMessage):
+    """Message representing assistant / AI response with optional tool calls."""
+
+    type: str = "ai"
+    tool_calls: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class SystemMessage(BaseMessage):
+    """Message representing system / context instructions."""
+
+    type: str = "system"
+
+
+@dataclass
+class ToolMessage(BaseMessage):
+    """Message representing output of a tool execution."""
+
+    type: str = "tool"
+    tool_call_id: str = ""
+

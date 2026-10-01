@@ -16,10 +16,15 @@ from polyrag.core.models import (
     AgentAction,
     AgentResponse,
     AgentStep,
+    AIMessage,
+    BaseMessage,
     Chunk,
     Document,
+    HumanMessage,
     RAGResponse,
     SearchResult,
+    SystemMessage,
+    ToolMessage,
 )
 from polyrag.embeddings import resolve_embedding_model
 from polyrag.embeddings.openai import OpenAIEmbedding
@@ -31,13 +36,20 @@ from polyrag.exceptions import (
     RAGException,
     RetrievalError,
 )
-from polyrag.llms.openai import OpenAILLM
+from polyrag.llms import (
+    ChatOpenAI,
+    OpenAIChatModel,
+    OpenAILLM,
+    resolve_chat_model,
+    resolve_llm_client,
+)
 from polyrag.pipelines.advanced import AdvancedRAG
 from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.base import BaseRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent, ReActRAG
 from polyrag.adapters.langchain import (
+    LangChainChatModelAdapter,
     LangChainDocumentConverter,
     LangChainEmbeddingAdapter,
 )
@@ -47,7 +59,7 @@ from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
 from polyrag.vector_stores.milvus import MilvusVectorStore
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 __all__ = [
     # Application Context & Setup Factory
@@ -82,9 +94,14 @@ __all__ = [
     # Adapters & Bridges
     "LangChainDocumentConverter",
     "LangChainEmbeddingAdapter",
-    # LLM
+    "LangChainChatModelAdapter",
+    # LLM & Modern ChatModel
     "BaseLLMClient",
     "OpenAILLM",
+    "ChatOpenAI",
+    "OpenAIChatModel",
+    "resolve_chat_model",
+    "resolve_llm_client",
     # Core Data Models
     "Document",
     "Chunk",
@@ -93,6 +110,11 @@ __all__ = [
     "AgentAction",
     "AgentStep",
     "AgentResponse",
+    "BaseMessage",
+    "HumanMessage",
+    "AIMessage",
+    "SystemMessage",
+    "ToolMessage",
     # Exceptions
     "RAGException",
     "ConfigurationError",
