@@ -23,10 +23,21 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 - [Agentic RAG Guide](guides/agentic-rag.md): Planning, semantic query rewriting, iterative multi-round retrieval, deduplication, and fused self-reflection.
 - [ReAct Agent Guide](guides/react-agent.md): Autonomous Thought-Action-Observation reasoning loop with dynamic tool execution.
 
-### 4. [API Reference](api-reference/)
+### 4. [Modules Documentation](modules/)
+- [Modules Overview & Catalog](modules/README.md): Architecture overview and index of all PolyRAG packages.
+- [Core Module](modules/core.md): Domain models (`Document`, `Chunk`, `SearchResult`, `RAGResponse`), abstract ports, and exceptions.
+- [Chunkers Module](modules/chunkers.md): `FixedSizeChunker` and `RecursiveCharacterChunker` algorithms and configuration.
+- [Embeddings Module](modules/embeddings.md): `SentenceTransformerEmbedding` (local offline) and `OpenAIEmbedding` (cloud).
+- [Vector Stores Module](modules/vector-stores.md): `InMemoryVectorStore`, `ChromaVectorStore`, and `MilvusVectorStore`.
+- [LLMs Module](modules/llms.md): `OpenAILLM` with support for OpenAI, Azure OpenAI, and local inference engines.
+- [Pipelines Module](modules/pipelines.md): `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
+- [Container Module](modules/container.md): Inversion of Control (IoC) Dependency Injection `Container`.
+- [App & Service Module](modules/app.md): Central `PolyRAG` application context and legacy `RAGService` compatibility layer.
+
+### 5. [API Reference](api-reference/)
 - [Core Models & Interfaces](api-reference/core.md): Domain dataclasses (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`), abstract interfaces, and exceptions.
 - [Pipelines Reference](api-reference/pipelines.md): Complete method signatures for `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
 - [Services & DI Container](api-reference/service.md): Complete method signatures for `RAGService`, `AgenticRAGService`, and `Container`.
 
-### 5. [Roadmap](roadmap/)
+### 6. [Roadmap](roadmap/)
 - [GraphRAG & Hybrid Search](roadmap/graphrag.md): Architecture plans for knowledge graph extraction, community summarization, and Reciprocal Rank Fusion.

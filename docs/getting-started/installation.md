@@ -37,6 +37,7 @@ PolyRAG uses optional extras so your production builds stay slim. Install only w
 | :--- | :--- | :--- |
 | **`[openai]`** | `pip install "polyrag[openai]"` | Official OpenAI SDK for LLM completions & embeddings |
 | **`[chroma]`** | `pip install "polyrag[chroma]"` | ChromaDB vector database for persistent local or remote collections |
+| **`[milvus]`** | `pip install "polyrag[milvus]"` | Milvus & Milvus Lite vector database (`pymilvus>=2.4.0`) |
 | **`[embeddings]`** | `pip install "polyrag[embeddings]"` | HuggingFace `sentence-transformers` & `torch` for offline local embeddings |
 | **`[all]`** | `pip install "polyrag[all]"` | Full production bundle with all vector stores, LLMs, and embeddings |
 | **`[dev]`** | `pip install "polyrag[dev]"` | Developer tools (`pytest`, `build`, `twine`) |

@@ -41,6 +41,9 @@ openai = [
 chroma = [
     "chromadb>=0.4.0",
 ]
+milvus = [
+    "pymilvus>=2.4.0",
+]
 embeddings = [
     "sentence-transformers>=2.2.0",
     "torch>=2.0.0",
@@ -48,6 +51,7 @@ embeddings = [
 all = [
     "openai>=1.0.0",
     "chromadb>=0.4.0",
+    "pymilvus>=2.4.0",
     "sentence-transformers>=2.2.0",
     "torch>=2.0.0",
     "fastapi>=0.100.0",
