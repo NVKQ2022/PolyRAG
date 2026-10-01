@@ -18,11 +18,24 @@ The `InMemoryVectorStore` is a **zero-dependency, pure-Python** vector store tha
 ```python
 from polyrag.vector_stores import InMemoryVectorStore
 
-vdb = InMemoryVectorStore()
+# Zero-dependency, all parameters optional
+vdb = InMemoryVectorStore(
+    metric="cosine",  # "cosine", "l2", "dot", or "ip"
+)
+
+# Or seed with initial data:
+seeded_vdb = InMemoryVectorStore(
+    metric="cosine",
+    initial_documents=[{"_id": "1", "text": "Cached doc"}],
+    initial_vectors=[[0.1, 0.2, 0.3]],
+)
 ```
 
-* **Parameters**: None. Operates completely in-memory using standard Python `list` structures.
-* **External Dependencies**: **Zero**.
+| Parameter | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `metric` | `str` | `"cosine"` | Similarity metric: `"cosine"`, `"l2"`, or `"dot"` / `"ip"`. |
+| `initial_documents` | `list[dict] \| None` | `None` | Optional initial list of document dicts to seed the store. |
+| `initial_vectors` | `list[list[float]] \| None` | `None` | Optional initial list of vectors matching `initial_documents`. |
 
 ---
 

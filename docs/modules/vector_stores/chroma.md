@@ -25,16 +25,35 @@ pip install chromadb>=0.4.0
 ```python
 from polyrag.vector_stores import ChromaVectorStore
 
+# All parameters are optional with smart defaults
 vdb = ChromaVectorStore(
     persist_directory="chroma_db",
     collection_name="rfc_docs",
+    distance_metric="cosine",  # "cosine", "l2", "ip"
+)
+
+# Or connect to a remote Chroma server:
+remote_vdb = ChromaVectorStore(
+    host="192.168.1.100",
+    port=8000,
+    ssl=True,
+    headers={"Authorization": "Bearer token"},
 )
 ```
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `persist_directory` | `str` | `"chroma_db"` | Directory path on disk where SQLite metadata and vector index files will be stored. Created automatically if it does not exist. |
-| `collection_name` | `str` | `"rfc_docs"` | Target collection name within ChromaDB. |
+| `persist_directory` | `str \| None` | `os.getenv("CHROMA_PERSIST_DIR", "chroma_db")` | Directory path on disk for SQLite metadata and vector index files. |
+| `collection_name` | `str \| None` | `os.getenv("CHROMA_COLLECTION", "rfc_docs")` | Target collection name within ChromaDB. |
+| `distance_metric` | `str` | `"cosine"` | Distance metric for HNSW index (`"cosine"`, `"l2"`, `"ip"`). |
+| `host` | `str \| None` | `None` | Remote Chroma server hostname or IP. When specified, switches to `HttpClient`. |
+| `port` | `int \| None` | `8000` *(if host set)* | Remote Chroma server port. |
+| `ssl` | `bool` | `False` | Whether to connect to remote server using HTTPS. |
+| `headers` | `dict[str, str] \| None`| `None` | Custom HTTP headers sent to remote Chroma server (e.g. auth tokens). |
+| `collection_metadata` | `dict[str, Any] \| None`| `None` | Custom collection metadata or HNSW tuning (`{"hnsw:construction_ef": 100}`). |
+| `client` | `Any \| None` | `None` | Pre-configured `chromadb.Client` instance (useful for dependency injection or testing). |
+| `settings` | `Settings \| None` | `None` | Custom `chromadb.config.Settings` object. |
+| `**client_kwargs` | `Any` | `{}` | Extra keyword arguments forwarded directly to the Chroma client constructor. |
 
 ---
 

@@ -68,12 +68,19 @@ vdb = MilvusVectorStore(
 
 ```python
 MilvusVectorStore(
-    uri: str = "http://localhost:19530",
-    token: str = "",
-    collection_name: str = "polyrag_docs",
+    uri: str | None = None,
+    token: str | None = None,
+    collection_name: str | None = None,
+    db_name: str = "default",
     dimension: int | None = None,
     metric_type: str = "COSINE",
+    index_type: str = "AUTOINDEX",
+    index_params: dict[str, Any] | None = None,
+    search_params: dict[str, Any] | None = None,
+    partition_name: str | None = None,
     consistency_level: str = "Strong",
+    timeout: float | None = None,
+    output_fields: list[str] | None = None,
     client: Any | None = None,
     **client_kwargs: Any,
 )
@@ -81,14 +88,21 @@ MilvusVectorStore(
 
 | Parameter | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `uri` | `str` | `"http://localhost:19530"` | Endpoint URL (for Standalone/Cluster/Cloud) or file path (`./milvus.db`) for Milvus Lite. |
-| `token` | `str` | `""` | API key or token for Zilliz Cloud or basic authentication (`user:password`). |
-| `collection_name` | `str` | `"polyrag_docs"` | Target Milvus collection. |
-| `dimension` | `int \| None` | `None` | Embedding dimension. If omitted (`None`), it is **automatically inferred** on the first call to `add_documents`. |
+| `uri` | `str \| None` | `os.getenv("MILVUS_URI", "http://localhost:19530")` | Endpoint URL or local database file path (`./milvus.db`) for Milvus Lite. |
+| `token` | `str \| None` | `os.getenv("MILVUS_TOKEN", "")` | API key or token for Zilliz Cloud or authentication (`user:password`). |
+| `collection_name` | `str \| None` | `os.getenv("MILVUS_COLLECTION", "polyrag_docs")` | Target Milvus collection. |
+| `db_name` | `str` | `"default"` | Database name for multi-tenant deployments (Milvus 2.3+). |
+| `dimension` | `int \| None` | `None` | Embedding vector dimension. Auto-inferred on first `add_documents` call if omitted. |
 | `metric_type` | `str` | `"COSINE"` | Similarity metric: `"COSINE"`, `"L2"`, or `"IP"`. |
-| `consistency_level` | `str` | `"Strong"` | Consistency model: `"Strong"`, `"Bounded"`, `"Session"`, or `"Eventually"`. |
-| `client` | `MilvusClient \| None` | `None` | Pre-configured `MilvusClient` instance (useful for dependency injection or mocking in tests). |
-| `**client_kwargs` | `Any` | `{}` | Additional kwargs forwarded to `MilvusClient(...)`. |
+| `index_type` | `str` | `"AUTOINDEX"` | Vector index type: `"AUTOINDEX"`, `"HNSW"`, `"IVF_FLAT"`, or `"FLAT"`. |
+| `index_params` | `dict \| None` | `None` | Custom index parameters (e.g. `{"M": 16, "efConstruction": 200}`). |
+| `search_params` | `dict \| None` | `None` | Default search parameters applied to all queries (e.g. `{"params": {"nprobe": 10}}`). |
+| `partition_name` | `str \| None` | `None` | Default partition to insert into and query from for multi-tenant isolation. |
+| `consistency_level`| `str` | `"Strong"` | Consistency model: `"Strong"`, `"Bounded"`, `"Session"`, or `"Eventually"`. |
+| `timeout` | `float \| None`| `None` | Default RPC timeout in seconds for collection, search, and insertion operations. |
+| `output_fields` | `list[str] \| None`| `None` | Default scalar fields to retrieve on search queries. |
+| `client` | `Any \| None` | `None` | Pre-configured `MilvusClient` instance (useful for dependency injection or mocking). |
+| `**client_kwargs` | `Any` | `{}` | Additional kwargs forwarded directly to `MilvusClient(...)`. |
 
 ---
 

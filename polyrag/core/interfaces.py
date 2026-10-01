@@ -51,6 +51,7 @@ class BaseVectorStore(ABC):
         vectors: list[list[float]],
         documents: list[dict[str, Any]],
         batch_size: int = 5000,
+        **kwargs: Any,
     ) -> None:
         """Add pre-computed vectors and document records."""
         raise NotImplementedError
@@ -60,6 +61,7 @@ class BaseVectorStore(ABC):
         self,
         query_vector: list[float],
         top_k: int = 5,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Perform nearest-neighbor search for a query embedding vector."""
         raise NotImplementedError

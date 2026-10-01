@@ -97,10 +97,11 @@ class BaseRAG(ABC):
         self,
         query: str,
         top_k: int = 5,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Find the top-k most relevant chunks for a query vector."""
         query_vector = self.embedding_model.embed_text(query)
-        return self.vector_store.search(query_vector=query_vector, top_k=top_k)
+        return self.vector_store.search(query_vector=query_vector, top_k=top_k, **kwargs)
 
     def format_context(
         self,
