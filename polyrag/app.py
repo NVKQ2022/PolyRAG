@@ -24,6 +24,7 @@ from polyrag.core.interfaces import (
     BaseVectorStore,
 )
 from polyrag.core.models import RAGResponse
+from polyrag.embeddings import resolve_embedding_model
 from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
 from polyrag.llms.openai import OpenAILLM
 from polyrag.pipelines.advanced import AdvancedRAG
@@ -45,20 +46,22 @@ class PolyRAG:
     def __init__(
         self,
         chunker: BaseChunker | str | None = None,
-        embedding_model: BaseEmbeddingModel | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
         vector_store: BaseVectorStore | None = None,
         llm_client: BaseLLMClient | None = None,
         container: Container | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> None:
+        target_emb = embedding if embedding is not None else embedding_model
         if container is not None:
             self.container = container
             self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else resolve_chunker(chunker)
-            self.embedding_model = container.resolve(BaseEmbeddingModel) if container.is_registered(BaseEmbeddingModel) else (embedding_model or SentenceTransformerEmbedding())
+            self.embedding_model = container.resolve(BaseEmbeddingModel) if container.is_registered(BaseEmbeddingModel) else resolve_embedding_model(target_emb)
             self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (vector_store or InMemoryVectorStore())
             self.llm_client = container.resolve(BaseLLMClient) if container.is_registered(BaseLLMClient) else (llm_client or OpenAILLM())
         else:
             self.chunker = resolve_chunker(chunker)
-            self.embedding_model = embedding_model or SentenceTransformerEmbedding()
+            self.embedding_model = resolve_embedding_model(target_emb)
             self.vector_store = vector_store or InMemoryVectorStore()
             self.llm_client = llm_client or OpenAILLM()
             self.container = Container.create(
@@ -91,13 +94,15 @@ class PolyRAG:
         cls,
         persist_dir: str | Path | None = "./chroma_db",
         collection_name: str = "documents",
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_model: BaseEmbeddingModel | str | Any | None = "all-MiniLM-L6-v2",
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> PolyRAG:
         """Initialize PolyRAG application context from environment variables."""
+        target_emb = embedding if embedding is not None else embedding_model
         container = Container.from_env(
             persist_dir=persist_dir,
             collection_name=collection_name,
-            embedding_model=embedding_model,
+            embedding_model=target_emb,
         )
         return cls(container=container)
 
@@ -105,20 +110,18 @@ class PolyRAG:
     def create(
         cls,
         model_name: str = "gpt-4o-mini",
-        embedding_model: BaseEmbeddingModel | str = "all-MiniLM-L6-v2",
+        embedding_model: BaseEmbeddingModel | str | Any | None = "all-MiniLM-L6-v2",
         persist_dir: str | Path | None = None,
         collection_name: str = "documents",
         vector_store: BaseVectorStore | None = None,
         llm_client: BaseLLMClient | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> PolyRAG:
         """Construct a PolyRAG application context with sensible defaults."""
         llm = llm_client or OpenAILLM(model_name=model_name)
-        emb: BaseEmbeddingModel
-        if isinstance(embedding_model, str):
-            emb = SentenceTransformerEmbedding(model_name=embedding_model)
-        else:
-            emb = embedding_model
+        target_emb = embedding if embedding is not None else embedding_model
+        emb = resolve_embedding_model(target_emb)
 
         vdb: BaseVectorStore
         if vector_store is not None:
@@ -150,6 +153,7 @@ class PolyRAG:
         source: str = "document",
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Chunk, embed, and index text into the shared vector store."""
         return self._default_pipeline.ingest_text(
@@ -157,6 +161,7 @@ class PolyRAG:
             source=source,
             metadata=metadata,
             chunker=chunker,
+            embedding_model=embedding_model,
         )
 
     def ingest(
@@ -165,21 +170,30 @@ class PolyRAG:
         source: str = "document",
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Convenience alias for ingest_text."""
-        return self.ingest_text(text=text, source=source, metadata=metadata, chunker=chunker)
+        return self.ingest_text(
+            text=text,
+            source=source,
+            metadata=metadata,
+            chunker=chunker,
+            embedding_model=embedding_model,
+        )
 
     def ingest_file(
         self,
         file_path: Path | str,
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Read and ingest a text or markdown file into the shared vector store."""
         return self._default_pipeline.ingest_file(
             file_path=file_path,
             metadata=metadata,
             chunker=chunker,
+            embedding_model=embedding_model,
         )
 
     def ingest_directory(
@@ -188,6 +202,7 @@ class PolyRAG:
         glob_pattern: str = "*.txt",
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Recursively scan and ingest all matching files from a directory."""
         return self._default_pipeline.ingest_directory(
@@ -195,6 +210,7 @@ class PolyRAG:
             glob_pattern=glob_pattern,
             metadata=metadata,
             chunker=chunker,
+            embedding_model=embedding_model,
         )
 
     def ingest_documents(
@@ -202,6 +218,7 @@ class PolyRAG:
         documents: Iterable[Any],
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest an iterable, generator, or list of documents.
@@ -216,6 +233,7 @@ class PolyRAG:
             documents=documents,
             metadata=metadata,
             chunker=chunker,
+            embedding_model=embedding_model,
         )
 
     def ingest_langchain_loader(
@@ -223,6 +241,7 @@ class PolyRAG:
         loader: Any,
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
@@ -232,6 +251,7 @@ class PolyRAG:
             loader=loader,
             metadata=metadata,
             chunker=chunker,
+            embedding_model=embedding_model,
         )
 
     def ingest_langchain_documents(
@@ -239,12 +259,14 @@ class PolyRAG:
         langchain_docs: Iterable[Any],
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Convenience alias for ingest_documents."""
         return self.ingest_documents(
             documents=langchain_docs,
             metadata=metadata,
             chunker=chunker,
+            embedding_model=embedding_model,
         )
 
     # -------------------------------------------------------------------------
@@ -255,10 +277,16 @@ class PolyRAG:
         self,
         query: str,
         top_k: int = 5,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Find the top-k most relevant chunks for a query from the shared store."""
-        return self._default_pipeline.retrieve(query=query, top_k=top_k, **kwargs)
+        return self._default_pipeline.retrieve(
+            query=query,
+            top_k=top_k,
+            embedding_model=embedding_model,
+            **kwargs,
+        )
 
     def format_context(
         self,
@@ -271,10 +299,21 @@ class PolyRAG:
     # Pipeline Factory Methods
     # -------------------------------------------------------------------------
 
-    def create_naive_rag(self, chunker: BaseChunker | str | None = None) -> NaiveRAG:
+    def create_naive_rag(
+        self,
+        chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
+    ) -> NaiveRAG:
         """Create a NaiveRAG pipeline reusing the configured models and vector store."""
+        target_emb = embedding if embedding is not None else embedding_model
+        resolved_embedding = (
+            resolve_embedding_model(target_emb)
+            if target_emb is not None
+            else self.embedding_model
+        )
         return NaiveRAG(
-            embedding_model=self.embedding_model,
+            embedding_model=resolved_embedding,
             vector_store=self.vector_store,
             llm_client=self.llm_client,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
@@ -287,10 +326,18 @@ class PolyRAG:
         min_relevance_score: float = 0.0,
         verbose: bool = False,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> AdvancedRAG:
         """Create an AdvancedRAG pipeline with multi-query expansion and RRF fusion."""
+        target_emb = embedding if embedding is not None else embedding_model
+        resolved_embedding = (
+            resolve_embedding_model(target_emb)
+            if target_emb is not None
+            else self.embedding_model
+        )
         return AdvancedRAG(
-            embedding_model=self.embedding_model,
+            embedding_model=resolved_embedding,
             vector_store=self.vector_store,
             llm_client=self.llm_client,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
@@ -306,10 +353,18 @@ class PolyRAG:
         max_rounds: int = 2,
         verbose: bool = False,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> AgenticRAG:
         """Create an AgenticRAG pipeline with planning, rewriting, and fused reflection."""
+        target_emb = embedding if embedding is not None else embedding_model
+        resolved_embedding = (
+            resolve_embedding_model(target_emb)
+            if target_emb is not None
+            else self.embedding_model
+        )
         return AgenticRAG(
-            embedding_model=self.embedding_model,
+            embedding_model=resolved_embedding,
             vector_store=self.vector_store,
             llm_client=self.llm_client,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
@@ -339,11 +394,19 @@ class PolyRAG:
         default_top_k: int = 5,
         verbose: bool = False,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> ReActAgent:
         """Create a ReActAgent pipeline with Thought-Action-Observation loops."""
+        target_emb = embedding if embedding is not None else embedding_model
+        resolved_embedding = (
+            resolve_embedding_model(target_emb)
+            if target_emb is not None
+            else self.embedding_model
+        )
         return ReActAgent(
             llm_client=self.llm_client,
-            embedding_model=self.embedding_model,
+            embedding_model=resolved_embedding,
             vector_store=self.vector_store,
             chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
             max_steps=max_steps,

@@ -23,16 +23,17 @@ class ReActAgent(BaseRAG):
 
     def __init__(
         self,
-        llm_client: BaseLLMClient,
-        embedding_model: BaseEmbeddingModel,
-        vector_store: BaseVectorStore,
+        llm_client: BaseLLMClient | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        vector_store: BaseVectorStore | None = None,
         chunker: BaseChunker | str | None = None,
         max_steps: int = 4,
         default_top_k: int = 5,
         verbose: bool = False,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> None:
         super().__init__(
-            embedding_model=embedding_model,
+            embedding_model=embedding if embedding is not None else embedding_model,
             vector_store=vector_store,
             llm_client=llm_client,
             chunker=chunker,

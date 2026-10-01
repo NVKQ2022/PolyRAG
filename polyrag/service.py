@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from polyrag.chunkers import resolve_chunker
 from polyrag.chunkers.recursive import RecursiveCharacterChunker
 from polyrag.core.interfaces import (
     BaseChunker,
@@ -12,6 +13,7 @@ from polyrag.core.interfaces import (
     BaseVectorStore,
 )
 from polyrag.core.models import RAGResponse
+from polyrag.embeddings import resolve_embedding_model
 from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
 from polyrag.llms.openai import OpenAILLM
 from polyrag.pipelines.agentic import AgenticRAG
@@ -71,22 +73,28 @@ class RAGService(PolyRAG):
     def create(
         cls,
         model_name: str = "gpt-4o-mini",
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_model: BaseEmbeddingModel | str | Any | None = "all-MiniLM-L6-v2",
         persist_dir: str | Path | None = None,
         collection_name: str = "documents",
+        chunking_service: BaseChunker | str | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
+        vector_db: BaseVectorStore | None = None,
     ) -> "RAGService":
         """Factory method to construct a RAGService with sensible defaults."""
         llm = OpenAILLM(model_name=model_name)
-        emb = SentenceTransformerEmbedding(model_name=embedding_model)
+        target_emb = embedding if embedding is not None else embedding_model
+        emb = resolve_embedding_model(target_emb)
         vdb: BaseVectorStore
-        if persist_dir:
+        if vector_db is not None:
+            vdb = vector_db
+        elif persist_dir:
             vdb = ChromaVectorStore(persist_path=persist_dir, collection_name=collection_name)
         else:
             vdb = InMemoryVectorStore()
 
         return cls(
             client=llm,
-            chunking_service=RecursiveCharacterChunker(),
+            chunking_service=resolve_chunker(chunking_service),
             embedding_service=emb,
             vector_db=vdb,
             model_name=model_name,
@@ -97,14 +105,16 @@ class RAGService(PolyRAG):
         cls,
         persist_dir: str | Path | None = "./chroma_db",
         collection_name: str = "rfc_documents",
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_model: BaseEmbeddingModel | str | Any | None = "all-MiniLM-L6-v2",
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> "RAGService":
         """
         Factory method reading configuration from environment variables (.env).
         Attempts to load persisted ChromaDB if present; falls back to InMemoryVectorStore.
         """
         model_name = os.getenv("MODEL_NAME", "gpt-4o-mini")
-        emb = SentenceTransformerEmbedding(model_name=embedding_model)
+        target_emb = embedding if embedding is not None else embedding_model
+        emb = resolve_embedding_model(target_emb)
 
         vdb: BaseVectorStore
         try:

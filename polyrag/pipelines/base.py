@@ -13,6 +13,7 @@ from polyrag.core.interfaces import (
     BaseVectorStore,
 )
 from polyrag.core.models import AgentResponse, RAGResponse
+from polyrag.embeddings import resolve_embedding_model
 
 
 class BaseRAG(ABC):
@@ -25,13 +26,16 @@ class BaseRAG(ABC):
 
     def __init__(
         self,
-        embedding_model: BaseEmbeddingModel,
-        vector_store: BaseVectorStore,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        vector_store: BaseVectorStore | None = None,
         llm_client: BaseLLMClient | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding: BaseEmbeddingModel | str | Any | None = None,
     ) -> None:
-        self.embedding_model = embedding_model
-        self.vector_store = vector_store
+        from polyrag.vector_stores.memory import InMemoryVectorStore
+
+        self.embedding_model = resolve_embedding_model(embedding if embedding is not None else embedding_model)
+        self.vector_store = vector_store if vector_store is not None else InMemoryVectorStore()
         self.llm_client = llm_client
         self.chunker = resolve_chunker(chunker)
 
@@ -41,6 +45,7 @@ class BaseRAG(ABC):
         source: str = "document",
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Chunk, embed, and store document text into the vector database."""
         if not text.strip():
@@ -51,7 +56,12 @@ class BaseRAG(ABC):
         if not chunks:
             return []
 
-        vectors = self.embedding_model.embed_batch(chunks)
+        active_embedding = (
+            resolve_embedding_model(embedding_model)
+            if embedding_model is not None
+            else self.embedding_model
+        )
+        vectors = active_embedding.embed_batch(chunks)
         documents = []
         for cid, chunk_text in enumerate(chunks):
             doc = {
@@ -71,13 +81,20 @@ class BaseRAG(ABC):
         file_path: Path | str,
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Read and ingest a text or markdown file."""
         path = Path(file_path)
         if not path.is_file():
             raise FileNotFoundError(f"File not found: {path}")
         text = path.read_text(encoding="utf-8", errors="ignore")
-        return self.ingest_text(text=text, source=path.name, metadata=metadata, chunker=chunker)
+        return self.ingest_text(
+            text=text,
+            source=path.name,
+            metadata=metadata,
+            chunker=chunker,
+            embedding_model=embedding_model,
+        )
 
     def ingest_directory(
         self,
@@ -85,6 +102,7 @@ class BaseRAG(ABC):
         glob_pattern: str = "*.txt",
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Recursively scan and ingest all matching files in a directory."""
         path = Path(dir_path)
@@ -94,7 +112,12 @@ class BaseRAG(ABC):
         added: list[dict[str, Any]] = []
         for file in sorted(path.rglob(glob_pattern)):
             if file.is_file():
-                docs = self.ingest_file(file, metadata=metadata, chunker=chunker)
+                docs = self.ingest_file(
+                    file,
+                    metadata=metadata,
+                    chunker=chunker,
+                    embedding_model=embedding_model,
+                )
                 added.extend(docs)
         return added
 
@@ -103,6 +126,7 @@ class BaseRAG(ABC):
         documents: Iterable[Any],
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest an iterable, generator, or list of documents.
@@ -117,6 +141,7 @@ class BaseRAG(ABC):
             documents: An iterable of documents (e.g. from loader.lazy_load()).
             metadata: Optional global metadata to attach to all ingested documents.
             chunker: Optional per-call chunker instance or strategy name to override instance default.
+            embedding_model: Optional per-call embedding model instance, strategy name, or bridge.
 
         Returns:
             List of indexed chunk dictionaries.
@@ -148,7 +173,13 @@ class BaseRAG(ABC):
             if metadata:
                 doc_meta.update(metadata)
 
-            chunks = self.ingest_text(text=text, source=source, metadata=doc_meta, chunker=chunker)
+            chunks = self.ingest_text(
+                text=text,
+                source=source,
+                metadata=doc_meta,
+                chunker=chunker,
+                embedding_model=embedding_model,
+            )
             added.extend(chunks)
 
         return added
@@ -158,6 +189,7 @@ class BaseRAG(ABC):
         loader: Any,
         metadata: dict[str, Any] | None = None,
         chunker: BaseChunker | str | None = None,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
@@ -168,6 +200,7 @@ class BaseRAG(ABC):
             loader: A LangChain DocumentLoader instance.
             metadata: Optional metadata to merge into all loaded documents.
             chunker: Optional chunker instance or strategy name to override instance default.
+            embedding_model: Optional embedding model instance, strategy name, or bridge.
 
         Returns:
             List of indexed chunk dictionaries.
@@ -179,16 +212,27 @@ class BaseRAG(ABC):
         else:
             raise TypeError("Provided loader object must implement 'lazy_load()' or 'load()'.")
 
-        return self.ingest_documents(docs, metadata=metadata, chunker=chunker)
+        return self.ingest_documents(
+            docs,
+            metadata=metadata,
+            chunker=chunker,
+            embedding_model=embedding_model,
+        )
 
     def retrieve(
         self,
         query: str,
         top_k: int = 5,
+        embedding_model: BaseEmbeddingModel | str | Any | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Find the top-k most relevant chunks for a query vector."""
-        query_vector = self.embedding_model.embed_text(query)
+        active_embedding = (
+            resolve_embedding_model(embedding_model)
+            if embedding_model is not None
+            else self.embedding_model
+        )
+        query_vector = active_embedding.embed_text(query)
         return self.vector_store.search(query_vector=query_vector, top_k=top_k, **kwargs)
 
     def format_context(
