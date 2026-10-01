@@ -21,7 +21,10 @@ class SentenceTransformerEmbedding(BaseEmbeddingModel):
         self.model_name = model_name
         self.model = SentenceTransformer(model_name)
 
-        dimension = self.model.get_sentence_embedding_dimension()
+        if hasattr(self.model, "get_embedding_dimension"):
+            dimension = self.model.get_embedding_dimension()
+        else:
+            dimension = self.model.get_sentence_embedding_dimension()
         if dimension is None:
             raise ValueError(f"Could not determine embedding dimension for model: {model_name}")
 
