@@ -10,6 +10,7 @@ PolyRAG serves as the central setup orchestrator and pipeline factory:
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 import os
 from pathlib import Path
 from typing import Any
@@ -104,17 +105,26 @@ class PolyRAG:
     def create(
         cls,
         model_name: str = "gpt-4o-mini",
-        embedding_model: str = "all-MiniLM-L6-v2",
+        embedding_model: BaseEmbeddingModel | str = "all-MiniLM-L6-v2",
         persist_dir: str | Path | None = None,
         collection_name: str = "documents",
+        vector_store: BaseVectorStore | None = None,
+        llm_client: BaseLLMClient | None = None,
         chunker: BaseChunker | None = None,
     ) -> PolyRAG:
         """Construct a PolyRAG application context with sensible defaults."""
-        llm = OpenAILLM(model_name=model_name)
-        emb = SentenceTransformerEmbedding(model_name=embedding_model)
+        llm = llm_client or OpenAILLM(model_name=model_name)
+        emb: BaseEmbeddingModel
+        if isinstance(embedding_model, str):
+            emb = SentenceTransformerEmbedding(model_name=embedding_model)
+        else:
+            emb = embedding_model
+
         vdb: BaseVectorStore
-        if persist_dir:
-            vdb = ChromaVectorStore(persist_path=persist_dir, collection_name=collection_name)
+        if vector_store is not None:
+            vdb = vector_store
+        elif persist_dir:
+            vdb = ChromaVectorStore(persist_directory=str(persist_dir), collection_name=collection_name)
         else:
             vdb = InMemoryVectorStore()
 
@@ -173,6 +183,41 @@ class PolyRAG:
             metadata=metadata,
         )
 
+    def ingest_documents(
+        self,
+        documents: Iterable[Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Ingest an iterable, generator, or list of documents.
+
+        Supports:
+        - LangChain Document objects (from .load() or .lazy_load())
+        - PolyRAG Document models
+        - Standard dictionaries ({"text": ..., "source": ...})
+        - Raw strings
+        """
+        return self._default_pipeline.ingest_documents(documents=documents, metadata=metadata)
+
+    def ingest_langchain_loader(
+        self,
+        loader: Any,
+        metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
+        Streams memory-efficiently using loader.lazy_load() when available, falling back to loader.load().
+        """
+        return self._default_pipeline.ingest_langchain_loader(loader=loader, metadata=metadata)
+
+    def ingest_langchain_documents(
+        self,
+        langchain_docs: Iterable[Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Convenience alias for ingest_documents."""
+        return self.ingest_documents(documents=langchain_docs, metadata=metadata)
+
     # -------------------------------------------------------------------------
     # Shared Direct Retrieval & Context Formatting
     # -------------------------------------------------------------------------
@@ -181,9 +226,10 @@ class PolyRAG:
         self,
         query: str,
         top_k: int = 5,
+        **kwargs: Any,
     ) -> list[dict[str, Any]]:
         """Find the top-k most relevant chunks for a query from the shared store."""
-        return self._default_pipeline.retrieve(query=query, top_k=top_k)
+        return self._default_pipeline.retrieve(query=query, top_k=top_k, **kwargs)
 
     def format_context(
         self,

@@ -35,10 +35,12 @@ from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.base import BaseRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent, ReActRAG
+from polyrag.adapters.langchain import LangChainDocumentConverter
 from polyrag.app import PolyRAG
 from polyrag.service import AgenticRAGService, RAGService
 from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
+from polyrag.vector_stores.milvus import MilvusVectorStore
 
 __version__ = "0.1.2"
 
@@ -69,6 +71,9 @@ __all__ = [
     "BaseVectorStore",
     "ChromaVectorStore",
     "InMemoryVectorStore",
+    "MilvusVectorStore",
+    # Adapters & Bridges
+    "LangChainDocumentConverter",
     # LLM
     "BaseLLMClient",
     "OpenAILLM",

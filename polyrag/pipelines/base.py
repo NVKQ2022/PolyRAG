@@ -1,6 +1,7 @@
 """Base class for all RAG pipelines."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -92,6 +93,85 @@ class BaseRAG(ABC):
                 docs = self.ingest_file(file, metadata=metadata)
                 added.extend(docs)
         return added
+
+    def ingest_documents(
+        self,
+        documents: Iterable[Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Ingest an iterable, generator, or list of documents.
+
+        Supports:
+        - LangChain Document objects (has 'page_content' and 'metadata')
+        - PolyRAG Document models (has 'text' and 'metadata')
+        - Dictionaries ({"text": ..., "source": ...})
+        - Raw strings
+
+        Args:
+            documents: An iterable of documents (e.g. from loader.lazy_load()).
+            metadata: Optional global metadata to attach to all ingested documents.
+
+        Returns:
+            List of indexed chunk dictionaries.
+        """
+        added: list[dict[str, Any]] = []
+        for item in documents:
+            if hasattr(item, "page_content"):
+                text = str(item.page_content)
+                doc_meta = dict(getattr(item, "metadata", {}))
+                doc_id = getattr(item, "id", None)
+                if doc_id:
+                    doc_meta["_id"] = doc_id
+                source = doc_meta.get("source", "external_doc")
+            elif hasattr(item, "text"):
+                text = str(item.text)
+                doc_meta = dict(getattr(item, "metadata", {}))
+                if getattr(item, "doc_id", None):
+                    doc_meta["_id"] = item.doc_id
+                source = getattr(item, "source", "document")
+            elif isinstance(item, dict):
+                text = str(item.get("text") or item.get("page_content") or "")
+                doc_meta = {k: v for k, v in item.items() if k not in ("text", "page_content")}
+                source = str(item.get("source", "document"))
+            else:
+                text = str(item)
+                doc_meta = {}
+                source = "document"
+
+            if metadata:
+                doc_meta.update(metadata)
+
+            chunks = self.ingest_text(text=text, source=source, metadata=doc_meta)
+            added.extend(chunks)
+
+        return added
+
+    def ingest_langchain_loader(
+        self,
+        loader: Any,
+        metadata: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
+
+        Streams memory-efficiently using loader.lazy_load() when available, falling back to loader.load().
+
+        Args:
+            loader: A LangChain DocumentLoader instance.
+            metadata: Optional metadata to merge into all loaded documents.
+
+        Returns:
+            List of indexed chunk dictionaries.
+        """
+        if hasattr(loader, "lazy_load"):
+            docs = loader.lazy_load()
+        elif hasattr(loader, "load"):
+            docs = loader.load()
+        else:
+            raise TypeError("Provided loader object must implement 'lazy_load()' or 'load()'.")
+
+        return self.ingest_documents(docs, metadata=metadata)
 
     def retrieve(
         self,

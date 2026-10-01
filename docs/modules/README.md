@@ -48,6 +48,7 @@ PolyRAG is architected into clean, decoupled, single-responsibility modules foll
 | **`polyrag.pipelines`** | End-to-end RAG workflows & reasoning paradigms | `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `ReActAgent` | [Pipelines Guide](pipelines.md) |
 | **`polyrag.container`** | Dependency Injection container and composition root | `Container` | [Container Guide](container.md) |
 | **`polyrag.app` / `service`** | High-level Application Context & pipeline factory | `PolyRAG`, `RAGService`, `AgenticRAGService` | [App & Service Guide](app.md) |
+| **`polyrag.adapters`** | External ecosystem bridges & loader converters | `LangChainDocumentConverter`, `ingest_langchain_loader` | [Adapters Guide](adapters/README.md) · [LangChain](adapters/langchain.md) |
 
 ---
 

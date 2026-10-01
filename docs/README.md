@@ -33,6 +33,7 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 - [Pipelines Module](modules/pipelines.md): `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
 - [Container Module](modules/container.md): Inversion of Control (IoC) Dependency Injection `Container`.
 - [App & Service Module](modules/app.md): Central `PolyRAG` application context and legacy `RAGService` compatibility layer.
+- [Adapters & Ecosystem Bridges](modules/adapters/README.md): [LangChain Document Loader Bridge](modules/adapters/langchain.md).
 
 ### 5. [API Reference](api-reference/)
 - [Core Models & Interfaces](api-reference/core.md): Domain dataclasses (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`), abstract interfaces, and exceptions.
