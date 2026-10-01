@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, TypeVar
 
+from polyrag.chunkers import resolve_chunker
 from polyrag.chunkers.recursive import RecursiveCharacterChunker
 from polyrag.core.interfaces import (
     BaseChunker,
@@ -88,7 +89,7 @@ class Container:
     @classmethod
     def create(
         cls,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | None = None,
         vector_store: BaseVectorStore | None = None,
         llm_client: BaseLLMClient | None = None,
@@ -97,7 +98,7 @@ class Container:
         container = cls()
 
         # Defaults
-        chunker_instance = chunker or RecursiveCharacterChunker()
+        chunker_instance = resolve_chunker(chunker)
         embedding_instance = embedding_model or SentenceTransformerEmbedding()
         vector_store_instance = vector_store or InMemoryVectorStore()
         llm_instance = llm_client or OpenAILLM()
@@ -151,17 +152,23 @@ class Container:
     # Pipeline Builders
     # =========================================================================
 
-    def build_naive_rag(self) -> NaiveRAG:
+    def build_naive_rag(self, chunker: BaseChunker | str | None = None) -> NaiveRAG:
         """Construct NaiveRAG pipeline using injected dependencies."""
+        resolved_chunker = (
+            resolve_chunker(chunker)
+            if chunker is not None
+            else (self.resolve(BaseChunker) if self.is_registered(BaseChunker) else None)
+        )
         return NaiveRAG(
             embedding_model=self.resolve(BaseEmbeddingModel),
             vector_store=self.resolve(BaseVectorStore),
             llm_client=self.resolve(BaseLLMClient),
-            chunker=self.resolve(BaseChunker),
+            chunker=resolved_chunker,
         )
 
     def build_advanced_rag(
         self,
+        chunker: BaseChunker | str | None = None,
         top_k: int = 5,
         num_expanded_queries: int = 3,
         min_relevance_score: float = 0.0,
@@ -169,11 +176,16 @@ class Container:
     ) -> Any:
         """Construct AdvancedRAG pipeline using injected dependencies."""
         from polyrag.pipelines.advanced import AdvancedRAG
+        resolved_chunker = (
+            resolve_chunker(chunker)
+            if chunker is not None
+            else (self.resolve(BaseChunker) if self.is_registered(BaseChunker) else None)
+        )
         return AdvancedRAG(
             embedding_model=self.resolve(BaseEmbeddingModel),
             vector_store=self.resolve(BaseVectorStore),
             llm_client=self.resolve(BaseLLMClient),
-            chunker=self.resolve(BaseChunker) if self.is_registered(BaseChunker) else None,
+            chunker=resolved_chunker,
             top_k=top_k,
             num_expanded_queries=num_expanded_queries,
             min_relevance_score=min_relevance_score,
@@ -182,15 +194,22 @@ class Container:
 
     def build_agentic_rag(
         self,
+        chunker: BaseChunker | str | None = None,
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,
     ) -> AgenticRAG:
         """Construct AgenticRAG pipeline using injected dependencies."""
+        resolved_chunker = (
+            resolve_chunker(chunker)
+            if chunker is not None
+            else (self.resolve(BaseChunker) if self.is_registered(BaseChunker) else None)
+        )
         return AgenticRAG(
             embedding_model=self.resolve(BaseEmbeddingModel),
             vector_store=self.resolve(BaseVectorStore),
             llm_client=self.resolve(BaseLLMClient),
+            chunker=resolved_chunker,
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
@@ -198,15 +217,22 @@ class Container:
 
     def build_react_agent(
         self,
+        chunker: BaseChunker | str | None = None,
         max_steps: int = 4,
         default_top_k: int = 5,
         verbose: bool = False,
     ) -> ReActAgent:
         """Construct ReActAgent pipeline using injected dependencies."""
+        resolved_chunker = (
+            resolve_chunker(chunker)
+            if chunker is not None
+            else (self.resolve(BaseChunker) if self.is_registered(BaseChunker) else None)
+        )
         return ReActAgent(
             llm_client=self.resolve(BaseLLMClient),
             embedding_model=self.resolve(BaseEmbeddingModel),
             vector_store=self.resolve(BaseVectorStore),
+            chunker=resolved_chunker,
             max_steps=max_steps,
             default_top_k=default_top_k,
             verbose=verbose,

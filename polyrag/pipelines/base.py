@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from polyrag.chunkers.recursive import RecursiveCharacterChunker
+from polyrag.chunkers import resolve_chunker
 from polyrag.core.interfaces import (
     BaseChunker,
     BaseEmbeddingModel,
@@ -28,24 +28,26 @@ class BaseRAG(ABC):
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
         llm_client: BaseLLMClient | None = None,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> None:
         self.embedding_model = embedding_model
         self.vector_store = vector_store
         self.llm_client = llm_client
-        self.chunker = chunker or RecursiveCharacterChunker()
+        self.chunker = resolve_chunker(chunker)
 
     def ingest_text(
         self,
         text: str,
         source: str = "document",
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Chunk, embed, and store document text into the vector database."""
         if not text.strip():
             return []
 
-        chunks = self.chunker.chunk(text)
+        active_chunker = resolve_chunker(chunker) if chunker is not None else self.chunker
+        chunks = active_chunker.chunk(text)
         if not chunks:
             return []
 
@@ -68,19 +70,21 @@ class BaseRAG(ABC):
         self,
         file_path: Path | str,
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Read and ingest a text or markdown file."""
         path = Path(file_path)
         if not path.is_file():
             raise FileNotFoundError(f"File not found: {path}")
         text = path.read_text(encoding="utf-8", errors="ignore")
-        return self.ingest_text(text=text, source=path.name, metadata=metadata)
+        return self.ingest_text(text=text, source=path.name, metadata=metadata, chunker=chunker)
 
     def ingest_directory(
         self,
         dir_path: Path | str,
         glob_pattern: str = "*.txt",
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Recursively scan and ingest all matching files in a directory."""
         path = Path(dir_path)
@@ -90,7 +94,7 @@ class BaseRAG(ABC):
         added: list[dict[str, Any]] = []
         for file in sorted(path.rglob(glob_pattern)):
             if file.is_file():
-                docs = self.ingest_file(file, metadata=metadata)
+                docs = self.ingest_file(file, metadata=metadata, chunker=chunker)
                 added.extend(docs)
         return added
 
@@ -98,6 +102,7 @@ class BaseRAG(ABC):
         self,
         documents: Iterable[Any],
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest an iterable, generator, or list of documents.
@@ -111,6 +116,7 @@ class BaseRAG(ABC):
         Args:
             documents: An iterable of documents (e.g. from loader.lazy_load()).
             metadata: Optional global metadata to attach to all ingested documents.
+            chunker: Optional per-call chunker instance or strategy name to override instance default.
 
         Returns:
             List of indexed chunk dictionaries.
@@ -142,7 +148,7 @@ class BaseRAG(ABC):
             if metadata:
                 doc_meta.update(metadata)
 
-            chunks = self.ingest_text(text=text, source=source, metadata=doc_meta)
+            chunks = self.ingest_text(text=text, source=source, metadata=doc_meta, chunker=chunker)
             added.extend(chunks)
 
         return added
@@ -151,6 +157,7 @@ class BaseRAG(ABC):
         self,
         loader: Any,
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
@@ -160,6 +167,7 @@ class BaseRAG(ABC):
         Args:
             loader: A LangChain DocumentLoader instance.
             metadata: Optional metadata to merge into all loaded documents.
+            chunker: Optional chunker instance or strategy name to override instance default.
 
         Returns:
             List of indexed chunk dictionaries.
@@ -171,7 +179,7 @@ class BaseRAG(ABC):
         else:
             raise TypeError("Provided loader object must implement 'lazy_load()' or 'load()'.")
 
-        return self.ingest_documents(docs, metadata=metadata)
+        return self.ingest_documents(docs, metadata=metadata, chunker=chunker)
 
     def retrieve(
         self,

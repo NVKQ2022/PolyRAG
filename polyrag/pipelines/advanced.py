@@ -27,7 +27,7 @@ class AdvancedRAG(BaseRAG):
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
         llm_client: BaseLLMClient,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
         top_k: int = 5,
         num_expanded_queries: int = 3,
         min_relevance_score: float = 0.0,

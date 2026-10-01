@@ -28,7 +28,7 @@ class AgenticRAG(BaseRAG):
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
         llm_client: BaseLLMClient,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,

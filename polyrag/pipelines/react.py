@@ -26,7 +26,7 @@ class ReActAgent(BaseRAG):
         llm_client: BaseLLMClient,
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
         max_steps: int = 4,
         default_top_k: int = 5,
         verbose: bool = False,

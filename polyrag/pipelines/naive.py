@@ -26,7 +26,7 @@ class NaiveRAG(BaseRAG):
         embedding_model: BaseEmbeddingModel,
         vector_store: BaseVectorStore,
         llm_client: BaseLLMClient | None = None,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> None:
         super().__init__(
             embedding_model=embedding_model,

@@ -15,7 +15,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from polyrag.chunkers.recursive import RecursiveCharacterChunker
+from polyrag.chunkers import resolve_chunker
 from polyrag.container import Container
 from polyrag.core.interfaces import (
     BaseChunker,
@@ -44,7 +44,7 @@ class PolyRAG:
 
     def __init__(
         self,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
         embedding_model: BaseEmbeddingModel | None = None,
         vector_store: BaseVectorStore | None = None,
         llm_client: BaseLLMClient | None = None,
@@ -52,12 +52,12 @@ class PolyRAG:
     ) -> None:
         if container is not None:
             self.container = container
-            self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else (chunker or RecursiveCharacterChunker())
+            self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else resolve_chunker(chunker)
             self.embedding_model = container.resolve(BaseEmbeddingModel) if container.is_registered(BaseEmbeddingModel) else (embedding_model or SentenceTransformerEmbedding())
             self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (vector_store or InMemoryVectorStore())
             self.llm_client = container.resolve(BaseLLMClient) if container.is_registered(BaseLLMClient) else (llm_client or OpenAILLM())
         else:
-            self.chunker = chunker or RecursiveCharacterChunker()
+            self.chunker = resolve_chunker(chunker)
             self.embedding_model = embedding_model or SentenceTransformerEmbedding()
             self.vector_store = vector_store or InMemoryVectorStore()
             self.llm_client = llm_client or OpenAILLM()
@@ -110,7 +110,7 @@ class PolyRAG:
         collection_name: str = "documents",
         vector_store: BaseVectorStore | None = None,
         llm_client: BaseLLMClient | None = None,
-        chunker: BaseChunker | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> PolyRAG:
         """Construct a PolyRAG application context with sensible defaults."""
         llm = llm_client or OpenAILLM(model_name=model_name)
@@ -129,7 +129,7 @@ class PolyRAG:
             vdb = InMemoryVectorStore()
 
         return cls(
-            chunker=chunker or RecursiveCharacterChunker(),
+            chunker=resolve_chunker(chunker),
             embedding_model=emb,
             vector_store=vdb,
             llm_client=llm,
@@ -149,44 +149,59 @@ class PolyRAG:
         text: str,
         source: str = "document",
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Chunk, embed, and index text into the shared vector store."""
-        return self._default_pipeline.ingest_text(text=text, source=source, metadata=metadata)
+        return self._default_pipeline.ingest_text(
+            text=text,
+            source=source,
+            metadata=metadata,
+            chunker=chunker,
+        )
 
     def ingest(
         self,
         text: str,
         source: str = "document",
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Convenience alias for ingest_text."""
-        return self.ingest_text(text=text, source=source, metadata=metadata)
+        return self.ingest_text(text=text, source=source, metadata=metadata, chunker=chunker)
 
     def ingest_file(
         self,
         file_path: Path | str,
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Read and ingest a text or markdown file into the shared vector store."""
-        return self._default_pipeline.ingest_file(file_path=file_path, metadata=metadata)
+        return self._default_pipeline.ingest_file(
+            file_path=file_path,
+            metadata=metadata,
+            chunker=chunker,
+        )
 
     def ingest_directory(
         self,
         dir_path: Path | str,
         glob_pattern: str = "*.txt",
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Recursively scan and ingest all matching files from a directory."""
         return self._default_pipeline.ingest_directory(
             dir_path=dir_path,
             glob_pattern=glob_pattern,
             metadata=metadata,
+            chunker=chunker,
         )
 
     def ingest_documents(
         self,
         documents: Iterable[Any],
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest an iterable, generator, or list of documents.
@@ -197,26 +212,40 @@ class PolyRAG:
         - Standard dictionaries ({"text": ..., "source": ...})
         - Raw strings
         """
-        return self._default_pipeline.ingest_documents(documents=documents, metadata=metadata)
+        return self._default_pipeline.ingest_documents(
+            documents=documents,
+            metadata=metadata,
+            chunker=chunker,
+        )
 
     def ingest_langchain_loader(
         self,
         loader: Any,
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
         Streams memory-efficiently using loader.lazy_load() when available, falling back to loader.load().
         """
-        return self._default_pipeline.ingest_langchain_loader(loader=loader, metadata=metadata)
+        return self._default_pipeline.ingest_langchain_loader(
+            loader=loader,
+            metadata=metadata,
+            chunker=chunker,
+        )
 
     def ingest_langchain_documents(
         self,
         langchain_docs: Iterable[Any],
         metadata: dict[str, Any] | None = None,
+        chunker: BaseChunker | str | None = None,
     ) -> list[dict[str, Any]]:
         """Convenience alias for ingest_documents."""
-        return self.ingest_documents(documents=langchain_docs, metadata=metadata)
+        return self.ingest_documents(
+            documents=langchain_docs,
+            metadata=metadata,
+            chunker=chunker,
+        )
 
     # -------------------------------------------------------------------------
     # Shared Direct Retrieval & Context Formatting
@@ -242,13 +271,13 @@ class PolyRAG:
     # Pipeline Factory Methods
     # -------------------------------------------------------------------------
 
-    def create_naive_rag(self) -> NaiveRAG:
+    def create_naive_rag(self, chunker: BaseChunker | str | None = None) -> NaiveRAG:
         """Create a NaiveRAG pipeline reusing the configured models and vector store."""
         return NaiveRAG(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
             llm_client=self.llm_client,
-            chunker=self.chunker,
+            chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
         )
 
     def create_advanced_rag(
@@ -257,13 +286,14 @@ class PolyRAG:
         num_expanded_queries: int = 3,
         min_relevance_score: float = 0.0,
         verbose: bool = False,
+        chunker: BaseChunker | str | None = None,
     ) -> AdvancedRAG:
         """Create an AdvancedRAG pipeline with multi-query expansion and RRF fusion."""
         return AdvancedRAG(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
             llm_client=self.llm_client,
-            chunker=self.chunker,
+            chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
             top_k=top_k,
             num_expanded_queries=num_expanded_queries,
             min_relevance_score=min_relevance_score,
@@ -275,12 +305,14 @@ class PolyRAG:
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,
+        chunker: BaseChunker | str | None = None,
     ) -> AgenticRAG:
         """Create an AgenticRAG pipeline with planning, rewriting, and fused reflection."""
         return AgenticRAG(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
             llm_client=self.llm_client,
+            chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
@@ -306,12 +338,14 @@ class PolyRAG:
         max_steps: int = 4,
         default_top_k: int = 5,
         verbose: bool = False,
+        chunker: BaseChunker | str | None = None,
     ) -> ReActAgent:
         """Create a ReActAgent pipeline with Thought-Action-Observation loops."""
         return ReActAgent(
             llm_client=self.llm_client,
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
+            chunker=resolve_chunker(chunker) if chunker is not None else self.chunker,
             max_steps=max_steps,
             default_top_k=default_top_k,
             verbose=verbose,
