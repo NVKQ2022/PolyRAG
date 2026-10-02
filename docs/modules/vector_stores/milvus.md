@@ -1,8 +1,12 @@
-# MilvusVectorStore (`polyrag.vector_stores.milvus`)
+# Milvus & Milvus Lite Vector Stores (`polyrag.vector_stores.milvus`)
 
-The `MilvusVectorStore` provides enterprise-grade, highly scalable vector indexing powered by **Milvus** via the modern `pymilvus.MilvusClient` SDK.
+The `polyrag.vector_stores` module provides enterprise-grade, highly scalable vector indexing powered by **Milvus** via the modern `pymilvus.MilvusClient` SDK.
 
-It supports **Milvus Lite** (local embedded database file), **Milvus Standalone** (single Docker container), **Distributed Milvus Clusters** (Kubernetes), and **Zilliz Cloud** (fully managed cloud vector database).
+PolyRAG includes two specialized vector store classes:
+1. **`MilvusLiteVectorStore` (alias `MilvusLite`)**: Embedded, serverless local database file (zero external dependencies, zero Docker, runs directly in Python).
+2. **`MilvusVectorStore`**: Full client for standalone Docker instances, distributed Kubernetes clusters, and managed **Zilliz Cloud**.
+
+Both classes implement PolyRAG's unified [`BaseVectorStore`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/core/interfaces.py) contract, allowing seamless transition from a local prototype to a planetary-scale distributed cluster with zero code modifications.
 
 ---
 
@@ -22,19 +26,34 @@ pip install "pymilvus>=2.4.0"
 
 ---
 
-## 2. Deployment Targets
+## 2. Quickstart: Milvus Lite vs. Milvus Cluster
 
-### Option A: Embedded Milvus Lite (Zero Infrastructure)
-Milvus Lite compiles directly into your Python process and stores data in a single local database file. No Docker or external service required:
+### Option A: Embedded Milvus Lite (Recommended for Local Dev & Edge)
+Milvus Lite runs inside your Python process and stores data in a single local database file. No Docker or external service required:
 
 ```python
-from polyrag.vector_stores import MilvusVectorStore
+from polyrag.vector_stores import MilvusLiteVectorStore
 
-vdb = MilvusVectorStore(
-    uri="./milvus_demo.db",
+# Automatically creates parent directories if needed
+vdb = MilvusLiteVectorStore(
+    db_path="./data/milvus_demo.db",
     collection_name="kb_articles",
     metric_type="COSINE",
 )
+```
+
+Alternatively, use the convenience alias or the factory method:
+```python
+from polyrag.vector_stores import MilvusLite, MilvusVectorStore
+
+# Using alias
+vdb = MilvusLite(db_path="./data/milvus_demo.db")
+
+# Or via factory method
+vdb = MilvusVectorStore.lite(db_path="./data/milvus_demo.db")
+
+# In-memory ephemeral database for fast testing
+mem_vdb = MilvusLiteVectorStore(db_path=":memory:")
 ```
 
 ### Option B: Milvus Standalone (Docker)
@@ -47,14 +66,18 @@ docker run -d --name milvus-standalone \
 
 Connect via PolyRAG:
 ```python
+from polyrag.vector_stores import MilvusVectorStore
+
 vdb = MilvusVectorStore(
     uri="http://localhost:19530",
     collection_name="production_kb",
 )
 ```
 
-### Option C: Zilliz Cloud (Managed)
+### Option C: Zilliz Cloud (Fully Managed)
 ```python
+from polyrag.vector_stores import MilvusVectorStore
+
 vdb = MilvusVectorStore(
     uri="https://in03-xxxxxxxx.api.gcp-us-west1.zillizcloud.com",
     token="YOUR_ZILLIZ_API_KEY",
@@ -64,7 +87,37 @@ vdb = MilvusVectorStore(
 
 ---
 
-## 3. Constructor & Parameters
+## 3. `MilvusLiteVectorStore` Reference
+
+`MilvusLiteVectorStore` inherits directly from `MilvusVectorStore` and specializes it for file-based embedded storage:
+
+```python
+MilvusLiteVectorStore(
+    db_path: str | Path = "./milvus_lite.db",
+    collection_name: str | None = None,
+    dimension: int | None = None,
+    metric_type: str = "COSINE",
+    index_type: str = "AUTOINDEX",
+    index_params: dict[str, Any] | None = None,
+    search_params: dict[str, Any] | None = None,
+    partition_name: str | None = None,
+    consistency_level: str = "Strong",
+    timeout: float | None = None,
+    output_fields: list[str] | None = None,
+    client: Any | None = None,
+    **client_kwargs: Any,
+)
+```
+
+### Key Lite Features
+* **`db_path`**: Accepts a file path (`str` or `pathlib.Path`, e.g. `'./milvus_lite.db'`, `'data/vectors.db'`) or `':memory:'` for in-memory ephemeral testing.
+* **Auto-Directory Creation**: Nested directories specified in `db_path` (e.g. `'storage/nested/db.milvus'`) are automatically created recursively.
+* **Zero Infrastructure**: Milvus Lite is built into `pymilvus>=2.4.0` via an embedded C++ core. No external daemon or network port is used.
+* **Seamless Scalability**: Once your dataset grows beyond single-machine capacity (~1M vectors), swap `MilvusLiteVectorStore(db_path=...)` with `MilvusVectorStore(uri="http://...")` without changing any indexing, query, or pipeline logic.
+
+---
+
+## 4. `MilvusVectorStore` Reference
 
 ```python
 MilvusVectorStore(
@@ -106,25 +159,25 @@ MilvusVectorStore(
 
 ---
 
-## 4. Key Architectural Features
+## 5. Key Architectural Features
 
 ### Dynamic Schema & Non-Destructive Ingestion
-`MilvusVectorStore` creates collections with `enable_dynamic_field=True`. This allows arbitrary metadata fields (`source`, `chunk_id`, `author`, `department`, custom tags) to be stored and searched without requiring database schema migrations.
+Both `MilvusVectorStore` and `MilvusLiteVectorStore` create collections with `enable_dynamic_field=True`. This allows arbitrary metadata fields (`source`, `chunk_id`, `author`, `department`, custom tags) to be stored and searched without requiring database schema migrations.
 
 ### Distance Metrics & Normalization
-* **`COSINE`**: Milvus returns the cosine similarity score $\in [-1, 1]$.
-  * $\text{score} = \text{distance}$
-  * $\text{distance} = 1.0 - \text{score}$
-* **`L2`**: Milvus returns the Euclidean distance $\ge 0$.
-  * $\text{score} = \frac{1}{1.0 + \text{distance}}$
+* **`COSINE`**: Milvus returns the cosine similarity score in `[-1, 1]`.
+  * `score = distance`
+  * `distance = 1.0 - score`
+* **`L2`**: Milvus returns the Euclidean distance `>= 0`.
+  * `score = 1.0 / (1.0 + distance)`
 * **`IP` (Inner Product)**: Returns the raw dot product (ideal for normalized vectors).
 
 ### Robust Two-Stage Counting
-`MilvusVectorStore.count()` executes an accurate `query(output_fields=["count(*)"])` reflecting real-time inserts and deletions. If the collection is not loaded in memory, it falls back to segment-level metadata stats (`get_collection_stats()`).
+`store.count()` executes an accurate `query(output_fields=["count(*)"])` reflecting real-time inserts and deletions. If the collection is not loaded in memory, it falls back to segment-level metadata stats (`get_collection_stats()`).
 
 ---
 
-## 5. Method Reference
+## 6. Method Reference
 
 ### `add_documents(vectors, documents, batch_size=5000)`
 Inserts embeddings and document payloads into the Milvus collection.
@@ -221,17 +274,17 @@ assert vdb.count() == 0
 
 ---
 
-## 6. End-to-End Example with PolyRAG
+## 7. End-to-End Example with PolyRAG
 
 ```python
 from polyrag.app import PolyRAG
-from polyrag.vector_stores import MilvusVectorStore
+from polyrag.vector_stores import MilvusLiteVectorStore
 from polyrag.embeddings import SentenceTransformerEmbedding
 from polyrag.llms import OpenAILLM
 
-# 1. Initialize Milvus (Lite or Server)
-vdb = MilvusVectorStore(
-    uri="./production_kb.db",
+# 1. Initialize embedded Milvus Lite
+vdb = MilvusLiteVectorStore(
+    db_path="./storage/rag_knowledge.db",
     collection_name="enterprise_knowledge",
     metric_type="COSINE",
 )
@@ -256,10 +309,10 @@ print("Confidence:", response.confidence)
 
 ---
 
-## 7. Production Best Practices
+## 8. Production Best Practices
 
 * **Batch Sizing**: When indexing tens of thousands of chunks, use `batch_size=2000` to `batch_size=5000` for optimal network throughput and memory utilization.
 * **Consistency Level**:
   * Use `"Strong"` (default) for immediate read-your-writes guarantees (ideal during ingestion and testing).
   * Use `"Bounded"` or `"Session"` for high-throughput distributed read clusters.
-* **Milvus Lite vs Standalone**: Use Milvus Lite for single-server setups, edge deployments, and testing. Migrate to Milvus Standalone / Cluster when your vector count exceeds $\sim 1\text{M}$ vectors or requires multi-node high availability.
+* **Milvus Lite vs Standalone**: Use `MilvusLiteVectorStore` for single-server setups, edge deployments, and testing. Migrate to `MilvusVectorStore` (Standalone or Cluster) when your vector count exceeds ~1M vectors or requires multi-node high availability.

@@ -10,7 +10,8 @@ The `polyrag.vector_stores` module manages nearest-neighbor vector indexing, doc
 | :--- | :--- | :--- | :--- | :--- |
 | **`InMemoryVectorStore`** | [Guide](vector_stores/memory.md) | Zero dependencies | RAM only (ephemeral) | Unit tests, quick prototypes, air-gapped dev |
 | **`ChromaVectorStore`** | [Guide](vector_stores/chroma.md) | `chromadb>=0.4.0` | Disk / Local SQLite | Embedded local apps, desktop tools |
-| **`MilvusVectorStore`** | [Guide](vector_stores/milvus.md) | `pymilvus>=2.4.0` | Milvus Lite file, Server, or Cloud | Production scale, enterprise clusters, Zilliz Cloud |
+| **`MilvusLiteVectorStore`** | [Guide](vector_stores/milvus.md) | `pymilvus>=2.4.0` | Local database file (`.db`) | Embedded zero-setup local apps, edge devices |
+| **`MilvusVectorStore`** | [Guide](vector_stores/milvus.md) | `pymilvus>=2.4.0` | Server, Cluster, or Cloud | Production scale, enterprise clusters, Zilliz Cloud |
 
 ---
 
@@ -57,7 +58,7 @@ vdb = ChromaVectorStore(
 
 ---
 
-## 4. `MilvusVectorStore`
+## 4. `MilvusLiteVectorStore` & `MilvusVectorStore`
 
 Provides production-grade vector storage powered by `pymilvus.MilvusClient`.
 
@@ -68,20 +69,30 @@ pip install "polyrag[milvus]"
 
 ### Modes of Operation
 
-#### Mode A: Embedded Milvus Lite (Zero Server Setup)
-Milvus Lite embeds directly into your Python process using a local SQLite-like database file:
-```python
-from polyrag.vector_stores import MilvusVectorStore
+#### Mode A: Embedded Milvus Lite (Zero Infrastructure)
+`MilvusLiteVectorStore` runs embedded in your Python process with a local database file, auto-creating directories if needed:
 
-vdb = MilvusVectorStore(
-    uri="./milvus_demo.db",
+```python
+from polyrag.vector_stores import MilvusLiteVectorStore, MilvusLite, MilvusVectorStore
+
+# Direct instantiation
+vdb = MilvusLiteVectorStore(
+    db_path="./storage/milvus_demo.db",
     collection_name="kb_docs",
     metric_type="COSINE",  # 'COSINE', 'L2', or 'IP'
 )
+
+# Or via class alias
+vdb = MilvusLite(db_path="./storage/milvus_demo.db")
+
+# Or via factory method
+vdb = MilvusVectorStore.lite(db_path="./storage/milvus_demo.db")
 ```
 
 #### Mode B: Milvus Standalone or Distributed Cluster
 ```python
+from polyrag.vector_stores import MilvusVectorStore
+
 vdb = MilvusVectorStore(
     uri="http://localhost:19530",
     collection_name="production_kb",
@@ -90,6 +101,8 @@ vdb = MilvusVectorStore(
 
 #### Mode C: Zilliz Cloud (Fully Managed)
 ```python
+from polyrag.vector_stores import MilvusVectorStore
+
 vdb = MilvusVectorStore(
     uri="https://in03-xxxxxxxx.api.gcp-us-west1.zillizcloud.com",
     token="YOUR_ZILLIZ_API_KEY",

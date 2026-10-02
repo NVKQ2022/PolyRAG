@@ -57,7 +57,11 @@ from polyrag.app import PolyRAG
 from polyrag.service import AgenticRAGService, RAGService
 from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
-from polyrag.vector_stores.milvus import MilvusVectorStore
+from polyrag.vector_stores.milvus import (
+    MilvusLite,
+    MilvusLiteVectorStore,
+    MilvusVectorStore,
+)
 
 __version__ = "0.1.4"
 
@@ -92,6 +96,8 @@ __all__ = [
     "ChromaVectorStore",
     "InMemoryVectorStore",
     "MilvusVectorStore",
+    "MilvusLiteVectorStore",
+    "MilvusLite",
     # Adapters & Bridges
     "LangChainDocumentConverter",
     "LangChainEmbeddingAdapter",

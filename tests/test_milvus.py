@@ -4,7 +4,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from polyrag.core.interfaces import BaseVectorStore
-from polyrag.vector_stores.milvus import MilvusVectorStore
+from polyrag.vector_stores.milvus import (
+    MilvusLite,
+    MilvusLiteVectorStore,
+    MilvusVectorStore,
+)
+
 
 
 def test_milvus_interface_compliance():
@@ -194,3 +199,134 @@ def test_milvus_peek():
 
     assert peeked["documents"] == ["chunk 1", "chunk 2"]
     assert peeked["ids"] == ["doc_1", "doc_2"]
+
+
+def test_milvus_lite_instantiation_and_inheritance():
+    """Ensure MilvusLiteVectorStore inherits from MilvusVectorStore and BaseVectorStore."""
+    mock_client = MagicMock()
+    mock_client.has_collection.return_value = True
+
+    store = MilvusLiteVectorStore(
+        db_path="./test_lite.db",
+        collection_name="test_col",
+        client=mock_client,
+    )
+    assert isinstance(store, MilvusVectorStore)
+    assert isinstance(store, BaseVectorStore)
+    assert isinstance(store, MilvusLiteVectorStore)
+    assert MilvusLite is MilvusLiteVectorStore
+    assert store.uri == "./test_lite.db"
+    assert store.token == ""
+
+
+def test_milvus_lite_db_path_parent_creation(tmp_path):
+    """Ensure MilvusLiteVectorStore auto-creates parent directories if needed."""
+    mock_client = MagicMock()
+    mock_client.has_collection.return_value = True
+
+    db_file = tmp_path / "deep" / "nested" / "vectors.db"
+    assert not db_file.parent.exists()
+
+    store = MilvusLiteVectorStore(
+        db_path=db_file,
+        collection_name="test_nested",
+        client=mock_client,
+    )
+    assert db_file.parent.exists()
+    assert store.uri == str(db_file)
+    assert store.db_path == db_file
+
+
+def test_milvus_lite_memory_path():
+    """Ensure :memory: db_path works without creating directories."""
+    mock_client = MagicMock()
+    mock_client.has_collection.return_value = True
+
+    store = MilvusLiteVectorStore(
+        db_path=":memory:",
+        client=mock_client,
+    )
+    assert store.uri == ":memory:"
+
+
+def test_milvus_vector_store_lite_factory():
+    """Ensure MilvusVectorStore.lite() factory method constructs MilvusLiteVectorStore."""
+    mock_client = MagicMock()
+    mock_client.has_collection.return_value = True
+
+    store = MilvusVectorStore.lite(
+        db_path="./factory_test.db",
+        collection_name="factory_col",
+        dimension=128,
+        metric_type="L2",
+        client=mock_client,
+    )
+    assert isinstance(store, MilvusLiteVectorStore)
+    assert store.uri == "./factory_test.db"
+    assert store.collection_name == "factory_col"
+    assert store.dimension == 128
+    assert store.metric_type == "L2"
+
+
+def test_milvus_lite_module_exports():
+    """Ensure MilvusLiteVectorStore is exported from all intended namespaces."""
+    from polyrag import MilvusLite as PolyMilvusLite, MilvusLiteVectorStore as PolyMilvusLiteVectorStore
+    from polyrag.vector_stores import (
+        MilvusLite as VdbMilvusLite,
+        MilvusLiteVectorStore as VdbMilvusLiteVectorStore,
+    )
+    from polyrag.vector_stores.milvus_lite import (
+        MilvusLite as SubMilvusLite,
+        MilvusLiteVectorStore as SubMilvusLiteVectorStore,
+    )
+
+    assert PolyMilvusLite is MilvusLiteVectorStore
+    assert PolyMilvusLiteVectorStore is MilvusLiteVectorStore
+    assert VdbMilvusLite is MilvusLiteVectorStore
+    assert VdbMilvusLiteVectorStore is MilvusLiteVectorStore
+    assert SubMilvusLite is MilvusLiteVectorStore
+    assert SubMilvusLiteVectorStore is MilvusLiteVectorStore
+
+
+def test_milvus_lite_operations(tmp_path):
+    """Test full document workflow on MilvusLiteVectorStore."""
+    mock_client = MagicMock()
+    mock_client.has_collection.return_value = True
+    mock_client.search.return_value = [
+        [
+            {
+                "id": "doc_1",
+                "distance": 0.95,
+                "entity": {"text": "Local embedded search result", "source": "local.txt"},
+            }
+        ]
+    ]
+    mock_client.query.return_value = [{"count(*)": 1}]
+
+    db_path = tmp_path / "milvus_lite_test.db"
+    store = MilvusLiteVectorStore(
+        db_path=db_path,
+        collection_name="embedded_docs",
+        client=mock_client,
+    )
+
+    # 1. Add documents
+    store.add_documents(
+        vectors=[[0.1, 0.2]],
+        documents=[{"_id": "doc_1", "text": "Local embedded search result", "source": "local.txt"}],
+    )
+    assert mock_client.insert.call_count == 1
+
+    # 2. Count
+    assert store.count() == 1
+
+    # 3. Search
+    results = store.search([0.1, 0.2], top_k=1)
+    assert len(results) == 1
+    assert results[0]["document"]["text"] == "Local embedded search result"
+    assert results[0]["document"]["source"] == "local.txt"
+
+    # 4. Clear
+    store.clear()
+    assert mock_client.drop_collection.call_count == 1
+

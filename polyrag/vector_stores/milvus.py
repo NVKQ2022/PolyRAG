@@ -379,3 +379,117 @@ class MilvusVectorStore(BaseVectorStore):
             }
         except Exception:
             return {"documents": []}
+
+    @classmethod
+    def lite(
+        cls,
+        db_path: str | Path = "./milvus_lite.db",
+        collection_name: str | None = None,
+        dimension: int | None = None,
+        metric_type: str = "COSINE",
+        **kwargs: Any,
+    ) -> "MilvusLiteVectorStore":
+        """
+        Factory method to create an embedded MilvusLiteVectorStore.
+
+        Args:
+            db_path: Local file path for the embedded database (default: './milvus_lite.db').
+            collection_name: Target collection name.
+            dimension: Dimensionality of vector embeddings.
+            metric_type: Distance metric type ("COSINE", "L2", "IP"). Defaults to "COSINE".
+            **kwargs: Extra arguments forwarded to MilvusLiteVectorStore.
+
+        Returns:
+            MilvusLiteVectorStore instance.
+        """
+        return MilvusLiteVectorStore(
+            db_path=db_path,
+            collection_name=collection_name,
+            dimension=dimension,
+            metric_type=metric_type,
+            **kwargs,
+        )
+
+
+class MilvusLiteVectorStore(MilvusVectorStore):
+    """
+    Milvus Lite embedded vector store using pymilvus.MilvusClient.
+
+    Milvus Lite runs entirely in-process and stores vectors and metadata
+    in a single local file (e.g., './milvus_lite.db') without requiring Docker
+    containers, daemon processes, or external network services.
+    """
+
+    def __init__(
+        self,
+        db_path: str | Path = "./milvus_lite.db",
+        collection_name: str | None = None,
+        dimension: int | None = None,
+        metric_type: str = "COSINE",
+        index_type: str = "AUTOINDEX",
+        index_params: dict[str, Any] | None = None,
+        search_params: dict[str, Any] | None = None,
+        partition_name: str | None = None,
+        consistency_level: str = "Strong",
+        timeout: float | None = None,
+        output_fields: list[str] | None = None,
+        client: Any | None = None,
+        **client_kwargs: Any,
+    ) -> None:
+        """
+        Initialize the Milvus Lite vector store.
+
+        Args:
+            db_path: Local file path for the embedded database (e.g. './milvus_lite.db', ':memory:').
+                Parent directories are created automatically if they do not exist.
+            collection_name: Target collection name.
+            dimension: Dimensionality of vector embeddings.
+            metric_type: Distance metric type ("COSINE", "L2", "IP"). Defaults to "COSINE".
+            index_type: Index type for vector indexing ("AUTOINDEX", "HNSW", "IVF_FLAT", "FLAT").
+            index_params: Optional custom indexing parameters.
+            search_params: Optional default search parameters.
+            partition_name: Optional partition name.
+            consistency_level: Consistency level ("Strong", "Bounded", "Session", "Eventually").
+            timeout: Optional operation timeout in seconds.
+            output_fields: Default scalar fields to retrieve on search.
+            client: Optional pre-configured MilvusClient instance.
+            **client_kwargs: Extra keyword arguments forwarded to MilvusClient.
+        """
+        if isinstance(db_path, Path):
+            path_str = str(db_path)
+            if path_str != ":memory:":
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+            uri_str = path_str
+        elif isinstance(db_path, str):
+            if db_path != ":memory:":
+                p = Path(db_path)
+                if str(p.parent) not in ("", "."):
+                    p.parent.mkdir(parents=True, exist_ok=True)
+            uri_str = db_path
+        else:
+            uri_str = str(db_path)
+
+        self.db_path = db_path
+
+        super().__init__(
+            uri=uri_str,
+            token="",
+            collection_name=collection_name,
+            db_name="default",
+            dimension=dimension,
+            metric_type=metric_type,
+            index_type=index_type,
+            index_params=index_params,
+            search_params=search_params,
+            partition_name=partition_name,
+            consistency_level=consistency_level,
+            timeout=timeout,
+            output_fields=output_fields,
+            client=client,
+            **client_kwargs,
+        )
+
+
+MilvusLite = MilvusLiteVectorStore
+
+__all__ = ["MilvusVectorStore", "MilvusLiteVectorStore", "MilvusLite"]

@@ -8,26 +8,28 @@ All stores implement the [`BaseVectorStore`](file:///home/quan/projects/pythonPa
 
 ## 🧭 Specific Store Guides
 
-| Store Guide | Backend Technology | Dependencies | Best For |
-| :--- | :--- | :--- | :--- |
-| **[`chroma.md`](chroma.md)** | ChromaDB | `chromadb>=0.4.0` | Embedded local file storage, lightweight Python apps, desktop utilities. |
-| **[`milvus.md`](milvus.md)** | Milvus & Milvus Lite | `pymilvus>=2.4.0` | Production enterprise scale, Milvus Lite file, Docker Standalone, or Zilliz Cloud. |
-| **[`memory.md`](memory.md)** | Pure Python In-Memory | *Zero dependencies* | Unit tests, CI/CD pipelines, ephemeral air-gapped sessions. |
+| Store Guide | Class Names | Backend Technology | Dependencies | Best For |
+| :--- | :--- | :--- | :--- | :--- |
+| **[`chroma.md`](chroma.md)** | `ChromaVectorStore` | ChromaDB | `chromadb>=0.4.0` | Embedded local file storage, lightweight Python apps, desktop utilities. |
+| **[`milvus.md`](milvus.md)** | `MilvusLiteVectorStore`, `MilvusLite` | Milvus Lite (Embedded) | `pymilvus>=2.4.0` | Embedded file database, edge devices, zero-infrastructure local setups. |
+| **[`milvus.md`](milvus.md)** | `MilvusVectorStore` | Milvus Standalone / Cluster / Zilliz | `pymilvus>=2.4.0` | Production enterprise scale, Docker Standalone, distributed Kubernetes, or Zilliz Cloud. |
+| **[`memory.md`](memory.md)** | `InMemoryVectorStore` | Pure Python In-Memory | *Zero dependencies* | Unit tests, CI/CD pipelines, ephemeral air-gapped sessions. |
 
 ---
 
 ## 📊 Comparison Matrix
 
-| Feature | `InMemoryVectorStore` | `ChromaVectorStore` | `MilvusVectorStore` |
-| :--- | :--- | :--- | :--- |
-| **Persistence** | ❌ Ephemeral (RAM) | ✅ Local SQLite / HNSW | ✅ Local file, Server, or Cloud |
-| **External Dependencies** | **None** (Built-in) | `chromadb` | `pymilvus` |
-| **Embedded / Serverless** | ✅ Yes | ✅ Yes | ✅ Yes (via Milvus Lite) |
-| **Distributed / Clustering**| ❌ No | ❌ No | ✅ Yes (Milvus Cluster) |
-| **Managed Cloud Option** | ❌ No | ❌ No | ✅ Yes (Zilliz Cloud) |
-| **Dynamic Schema ($meta)** | ✅ Python dict | ⚠️ Flat scalars | ✅ Native Dynamic Schema & JSON |
-| **Supported Metrics** | Cosine | Cosine, L2, IP | COSINE, L2, IP |
-| **Default Dimension** | Inferred dynamically | Inferred dynamically | Inferred dynamically |
+| Feature | `InMemoryVectorStore` | `ChromaVectorStore` | `MilvusLiteVectorStore` | `MilvusVectorStore` |
+| :--- | :--- | :--- | :--- | :--- |
+| **Persistence** | ❌ Ephemeral (RAM) | ✅ Local SQLite / HNSW | ✅ Local file (`.db`) | ✅ Server, Cluster, or Cloud |
+| **External Dependencies** | **None** (Built-in) | `chromadb` | `pymilvus` | `pymilvus` |
+| **Embedded / Serverless** | ✅ Yes | ✅ Yes | ✅ Yes (Native C++ core) | ❌ Needs daemon/cluster |
+| **Distributed / Clustering**| ❌ No | ❌ No | ❌ No | ✅ Yes (Milvus Cluster) |
+| **Managed Cloud Option** | ❌ No | ❌ No | ❌ No | ✅ Yes (Zilliz Cloud) |
+| **Dynamic Schema ($meta)** | ✅ Python dict | ⚠️ Flat scalars | ✅ Native Dynamic Schema & JSON | ✅ Native Dynamic Schema & JSON |
+| **Supported Metrics** | Cosine | Cosine, L2, IP | COSINE, L2, IP | COSINE, L2, IP |
+| **Default Dimension** | Inferred dynamically | Inferred dynamically | Inferred dynamically | Inferred dynamically |
+
 
 ---
 
