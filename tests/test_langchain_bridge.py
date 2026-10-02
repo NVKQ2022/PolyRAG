@@ -4,10 +4,12 @@ from dataclasses import dataclass
 from typing import Any
 import pytest
 
-from polyrag.adapters.langchain import LangChainDocumentConverter
 from polyrag.app import PolyRAG
 from polyrag.core.interfaces import BaseEmbeddingModel, BaseLLMClient
-from polyrag.core.models import Document as PolyDocument
+from polyrag.core.models import (
+    Document as PolyDocument,
+    LangChainDocumentConverter,
+)
 from polyrag.vector_stores.memory import InMemoryVectorStore
 
 

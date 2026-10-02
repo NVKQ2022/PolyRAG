@@ -1,10 +1,13 @@
 """
-polyrag - A modular, extensible, and production-ready Retrieval-Augmented Generation library.
+polyrag - A modular, multi-paradigm RAG orchestration library built natively on LangChain.
 """
 
-from polyrag.chunkers import resolve_chunker
-from polyrag.chunkers.fixed_size import FixedSizeChunker
-from polyrag.chunkers.recursive import RecursiveCharacterChunker
+from polyrag.app import PolyRAG, RAGService
+from polyrag.chunkers import (
+    FixedSizeChunker,
+    RecursiveCharacterChunker,
+    resolve_chunker,
+)
 from polyrag.container import Container
 from polyrag.core.interfaces import (
     BaseChatModel,
@@ -30,9 +33,10 @@ from polyrag.core.models import (
     SystemMessage,
     ToolMessage,
 )
-from polyrag.embeddings import resolve_embedding_model
-from polyrag.embeddings.openai import OpenAIEmbedding
-from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
+from polyrag.embeddings import (
+    LangChainEmbeddingAdapter,
+    resolve_embedding_model,
+)
 from polyrag.exceptions import (
     ConfigurationError,
     IngestionError,
@@ -42,47 +46,36 @@ from polyrag.exceptions import (
 )
 from polyrag.llms import (
     ChatOpenAI,
+    LangChainChatModelAdapter,
     OpenAIChatModel,
     OpenAILLM,
     resolve_chat_model,
     resolve_llm_client,
 )
 from polyrag.pipelines.advanced import AdvancedRAG
-from polyrag.pipelines.agentic import AgentTool, AgenticRAG
+from polyrag.pipelines.agentic import AgentTool, AgenticRAG, AgenticRAGService
 from polyrag.pipelines.base import BaseRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent, ReActRAG
-from polyrag.adapters.langchain import (
-    LangChainChatModelAdapter,
-    LangChainDocumentConverter,
-    LangChainEmbeddingAdapter,
-)
-from polyrag.app import PolyRAG
-from polyrag.service import AgenticRAGService, RAGService
 from polyrag.vector_stores import (
-    ChromaVectorStore,
     InMemoryVectorStore,
-    MilvusLite,
-    MilvusLiteVectorStore,
-    MilvusVectorStore,
     resolve_vector_store,
 )
 
-__version__ = "0.1.5"
+__version__ = "0.2.0"
 
 __all__ = [
     # Application Context & Setup Factory
     "PolyRAG",
+    "RAGService",
     # Dependency Injection
     "Container",
-    # Service Facades
-    "RAGService",
-    "AgenticRAGService",
     # RAG Architecture Hierarchy
     "BaseRAG",
     "NaiveRAG",
     "AdvancedRAG",
     "AgenticRAG",
+    "AgenticRAGService",
     "AgentTool",
     "ReActAgent",
     "ReActRAG",
@@ -98,26 +91,18 @@ __all__ = [
     "resolve_chunker",
     # Embeddings
     "BaseEmbeddingModel",
-    "SentenceTransformerEmbedding",
-    "OpenAIEmbedding",
+    "LangChainEmbeddingAdapter",
     "resolve_embedding_model",
     # Vector Stores
     "BaseVectorStore",
-    "ChromaVectorStore",
     "InMemoryVectorStore",
-    "MilvusVectorStore",
-    "MilvusLiteVectorStore",
-    "MilvusLite",
     "resolve_vector_store",
-    # Adapters & Bridges
-    "LangChainDocumentConverter",
-    "LangChainEmbeddingAdapter",
-    "LangChainChatModelAdapter",
-    # LLM & Modern ChatModel
+    # LLM & ChatModel
     "BaseLLMClient",
-    "OpenAILLM",
     "ChatOpenAI",
+    "OpenAILLM",
     "OpenAIChatModel",
+    "LangChainChatModelAdapter",
     "resolve_chat_model",
     "resolve_llm_client",
     # Core Data Models

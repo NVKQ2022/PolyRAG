@@ -754,3 +754,9 @@ Provide your next Thought and Tool in strictly valid JSON format:
     ) -> RAGResponse:
         """Alias for execute with optional state parameter."""
         return self.execute(question, state=state, **kwargs)
+
+
+# Backward-compatible alias
+AgenticRAGService = AgenticRAG
+
+__all__ = ["AgenticRAG", "AgentTool", "AgenticRAGService"]

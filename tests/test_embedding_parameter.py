@@ -13,12 +13,12 @@ from polyrag import (
     NaiveRAG,
     PolyRAG,
     ReActAgent,
-    SentenceTransformerEmbedding,
     resolve_embedding_model,
 )
 from polyrag.core.interfaces import (
     BaseEmbeddingModel,
     BaseLLMClient,
+    Embeddings,
 )
 from polyrag.core.models import Document
 from polyrag.vector_stores.memory import InMemoryVectorStore
@@ -102,8 +102,8 @@ class MockLangChainLoader:
 
 def test_resolve_embedding_model_defaults():
     emb = resolve_embedding_model(None)
-    assert isinstance(emb, SentenceTransformerEmbedding)
-    assert emb.model_name == "all-MiniLM-L6-v2"
+    assert isinstance(emb, Embeddings)
+    assert len(emb.embed_query("test")) == 384
 
 
 def test_resolve_embedding_model_instance():
@@ -113,15 +113,13 @@ def test_resolve_embedding_model_instance():
 
 
 def test_resolve_embedding_model_string_aliases():
-    st = resolve_embedding_model("sentence_transformers")
-    assert isinstance(st, SentenceTransformerEmbedding)
-
-    st2 = resolve_embedding_model("local")
-    assert isinstance(st2, SentenceTransformerEmbedding)
+    fake = resolve_embedding_model("fake", size=128)
+    assert isinstance(fake, Embeddings)
+    assert len(fake.embed_query("test")) == 128
 
     # String model name
     hf = resolve_embedding_model("all-MiniLM-L6-v2")
-    assert isinstance(hf, SentenceTransformerEmbedding)
+    assert isinstance(hf, Embeddings)
 
 
 def test_resolve_embedding_model_langchain_duck_typing():

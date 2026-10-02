@@ -10,11 +10,11 @@ from polyrag.core.interfaces import (
     BaseLLMClient,
     BaseVectorStore,
 )
+from polyrag.app import PolyRAG
 from polyrag.exceptions import ConfigurationError
 from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent
-from polyrag.service import AgenticRAGService, RAGService
 from polyrag.vector_stores.memory import InMemoryVectorStore
 
 
@@ -120,26 +120,25 @@ def test_container_pipeline_builders():
     assert isinstance(react, ReActAgent)
     assert react.max_steps == 3
 
-    # Services
+    # App & Pipeline Builders
     service = container.build_service()
-    assert isinstance(service, RAGService)
-    assert service.model_name == "dummy-model"
+    assert isinstance(service, PolyRAG)
 
     agentic_service = container.build_agentic_service(top_k=2)
-    assert isinstance(agentic_service, AgenticRAGService)
+    assert isinstance(agentic_service, AgenticRAG)
 
 
-def test_rag_service_from_container():
+def test_rag_app_from_container():
     container = Container()
     container.register_instance(BaseChunker, RecursiveCharacterChunker())
     container.register_instance(BaseEmbeddingModel, DummyEmbedding())
     container.register_instance(BaseVectorStore, InMemoryVectorStore())
     container.register_instance(BaseLLMClient, DummyLLM())
 
-    service = RAGService.from_container(container)
-    assert isinstance(service, RAGService)
+    app = PolyRAG.from_container(container)
+    assert isinstance(app, PolyRAG)
 
     # Ingest and query
-    service.ingest("Sample text", source="doc.txt")
-    results = service.retrieve("query", top_k=1)
+    app.ingest("Sample text", source="doc.txt")
+    results = app.retrieve("query", top_k=1)
     assert len(results) == 1

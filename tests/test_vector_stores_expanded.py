@@ -1,11 +1,9 @@
-"""Tests for expanded parameters across all PolyRAG vector stores."""
+"""Tests for expanded parameters across PolyRAG vector stores."""
 
-from unittest.mock import MagicMock, patch
+from typing import Any
 import pytest
 
-from polyrag.vector_stores.chroma import ChromaVectorStore
-from polyrag.vector_stores.memory import InMemoryVectorStore
-from polyrag.vector_stores.milvus import MilvusVectorStore
+from polyrag.vector_stores import InMemoryVectorStore, resolve_vector_store
 
 
 # =========================================================================
@@ -64,107 +62,19 @@ def test_memory_l2_and_dot_metrics():
     assert res_dot[0]["score"] == 5.0
 
 
-# =========================================================================
-# ChromaVectorStore Expanded Tests
-# =========================================================================
+def test_resolve_vector_store():
+    # 1. Default to InMemoryVectorStore
+    store = resolve_vector_store()
+    assert isinstance(store, InMemoryVectorStore)
 
-def test_chroma_where_and_where_document():
-    mock_client = MagicMock()
-    mock_collection = MagicMock()
-    mock_client.get_or_create_collection.return_value = mock_collection
-    mock_collection.query.return_value = {
-        "ids": [["doc_1"]],
-        "documents": [["DNS spec"]],
-        "metadatas": [[{"source": "rfc1035.txt"}]],
-        "distances": [[0.1]],
-    }
+    # 2. String alias 'memory'
+    store_mem = resolve_vector_store("memory")
+    assert isinstance(store_mem, InMemoryVectorStore)
 
-    store = ChromaVectorStore(
-        collection_name="test_col",
-        client=mock_client,
-    )
+    # 3. Instance passthrough
+    custom = InMemoryVectorStore(metric="l2")
+    assert resolve_vector_store(custom) is custom
 
-    results = store.search(
-        [0.1, 0.2],
-        top_k=3,
-        where={"source": "rfc1035.txt"},
-        where_document={"$contains": "DNS"},
-    )
-
-    assert len(results) == 1
-    mock_collection.query.assert_called_once()
-    call_kwargs = mock_collection.query.call_args[1]
-    assert call_kwargs["where"] == {"source": "rfc1035.txt"}
-    assert call_kwargs["where_document"] == {"$contains": "DNS"}
-
-
-def test_chroma_http_client_initialization():
-    mock_chromadb = MagicMock()
-    with patch.dict("sys.modules", {"chromadb": mock_chromadb, "chromadb.config": MagicMock()}):
-        ChromaVectorStore(
-            host="192.168.1.100",
-            port=9000,
-            ssl=True,
-            headers={"Authorization": "Bearer token"},
-        )
-        mock_chromadb.HttpClient.assert_called_once_with(
-            host="192.168.1.100",
-            port=9000,
-            ssl=True,
-            headers={"Authorization": "Bearer token"},
-            settings=mock_chromadb.HttpClient.call_args[1]["settings"],
-        )
-
-
-# =========================================================================
-# MilvusVectorStore Expanded Tests
-# =========================================================================
-
-def test_milvus_filter_expr_and_partition():
-    mock_client = MagicMock()
-    mock_client.has_collection.return_value = True
-    mock_client.search.return_value = [[
-        {"id": "1", "distance": 0.9, "entity": {"text": "filtered doc", "dept": "Security"}}
-    ]]
-
-    store = MilvusVectorStore(
-        collection_name="test_col",
-        partition_name="tenant_alpha",
-        client=mock_client,
-    )
-
-    # Insert with partition
-    store.add_documents([[0.1, 0.2]], [{"text": "test"}])
-    insert_call = mock_client.insert.call_args[1]
-    assert insert_call["partition_name"] == "tenant_alpha"
-
-    # Search with filter_expr
-    results = store.search(
-        [0.1, 0.2],
-        top_k=2,
-        filter_expr='dept == "Security"',
-    )
-
-    assert len(results) == 1
-    search_call = mock_client.search.call_args[1]
-    assert search_call["filter"] == 'dept == "Security"'
-    assert search_call["partition_names"] == ["tenant_alpha"]
-
-
-def test_milvus_client_kwargs_forwarding():
-    mock_pymilvus = MagicMock()
-    with patch.dict("sys.modules", {"pymilvus": mock_pymilvus}):
-        MilvusVectorStore(
-            uri="http://milvus:19530",
-            token="secret",
-            db_name="tenant_db",
-            timeout=15.0,
-            custom_arg="value",
-        )
-        mock_pymilvus.MilvusClient.assert_called_once_with(
-            uri="http://milvus:19530",
-            token="secret",
-            db_name="tenant_db",
-            timeout=15.0,
-            custom_arg="value",
-        )
+    # 4. Unknown string raises error
+    with pytest.raises(TypeError, match="Expected VectorStore instance"):
+        resolve_vector_store(12345)

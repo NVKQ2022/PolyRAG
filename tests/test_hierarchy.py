@@ -10,7 +10,7 @@ from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.base import BaseRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent, ReActRAG
-from polyrag.service import RAGService
+from polyrag.app import PolyRAG
 from polyrag.vector_stores.memory import InMemoryVectorStore
 
 
@@ -128,27 +128,23 @@ def test_advanced_rag_pipeline():
     assert "Expanded" in response.reasoning_summary
 
 
-def test_rag_service_create_advanced_rag():
-    """Verify RAGService.create_advanced_rag() produces an AdvancedRAG instance."""
+def test_polyrag_create_advanced_rag():
+    """Verify PolyRAG.create_advanced_rag() produces an AdvancedRAG instance."""
     emb = MockEmbedding()
     vdb = InMemoryVectorStore()
     llm = MockLLM()
 
-    service = RAGService(
-        client=llm,
-        embedding_service=emb,
-        vector_db=vdb,
+    app = PolyRAG(
+        llm_client=llm,
+        embedding_model=emb,
+        vector_store=vdb,
     )
 
-    service.ingest("RFC 793 Transmission Control Protocol", source="rfc793.txt")
+    app.ingest("RFC 793 Transmission Control Protocol", source="rfc793.txt")
 
-    advanced = service.create_advanced_rag(num_expanded_queries=2)
+    advanced = app.create_advanced_rag(num_expanded_queries=2)
     assert isinstance(advanced, AdvancedRAG)
     assert isinstance(advanced, BaseRAG)
-
-    # Also test backward-compatibility alias
-    alias_advanced = service.as_advanced(num_expanded_queries=2)
-    assert isinstance(alias_advanced, AdvancedRAG)
 
     res = advanced.query("What is TCP?", top_k=1)
     assert isinstance(res, RAGResponse)

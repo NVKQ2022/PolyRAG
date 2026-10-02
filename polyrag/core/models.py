@@ -277,6 +277,48 @@ class AgentResponse:
         return getattr(self, item)
 
 
+class LangChainDocumentConverter:
+    """Utility to convert objects or dicts to PolyRAG Document instances."""
+
+    @staticmethod
+    def to_polyrag_document(lc_doc: Any, default_source: str = "langchain_doc") -> Document:
+        if hasattr(lc_doc, "page_content"):
+            text = str(lc_doc.page_content)
+            metadata = dict(getattr(lc_doc, "metadata", {}))
+            doc_id = getattr(lc_doc, "id", None) or metadata.get("_id")
+            source = metadata.get("source", default_source)
+        elif hasattr(lc_doc, "text"):
+            text = str(lc_doc.text)
+            metadata = dict(getattr(lc_doc, "metadata", {}))
+            doc_id = getattr(lc_doc, "doc_id", None) or metadata.get("_id")
+            source = getattr(lc_doc, "source", default_source)
+        elif isinstance(lc_doc, dict):
+            text = str(lc_doc.get("text") or lc_doc.get("page_content") or "")
+            metadata = {k: v for k, v in lc_doc.items() if k not in ("text", "page_content")}
+            doc_id = lc_doc.get("_id") or lc_doc.get("id")
+            source = lc_doc.get("source", default_source)
+        else:
+            text = str(lc_doc)
+            metadata = {}
+            doc_id = None
+            source = default_source
+
+        return Document(
+            source=source,
+            text=text,
+            metadata=metadata,
+            doc_id=doc_id,
+        )
+
+    @classmethod
+    def to_polyrag_documents(
+        cls,
+        documents: Any,
+        default_source: str = "langchain_doc",
+    ) -> list[Document]:
+        return [cls.to_polyrag_document(d, default_source=default_source) for d in documents]
+
+
 __all__ = [
     "Document",
     "Chunk",
@@ -290,4 +332,5 @@ __all__ = [
     "AIMessage",
     "SystemMessage",
     "ToolMessage",
+    "LangChainDocumentConverter",
 ]

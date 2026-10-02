@@ -185,6 +185,13 @@ class BaseLLMClient(ABC):
         try:
             return json.loads(candidate)
         except json.JSONDecodeError:
+            try:
+                import ast
+                parsed = ast.literal_eval(candidate)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
             return {}
 
     def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:

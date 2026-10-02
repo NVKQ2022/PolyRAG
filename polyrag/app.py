@@ -18,22 +18,23 @@ from typing import Any
 from polyrag.chunkers import resolve_chunker
 from polyrag.container import Container
 from polyrag.core.interfaces import (
+    BaseChatModel,
     BaseChunker,
     BaseEmbeddingModel,
     BaseLLMClient,
     BaseVectorStore,
+    Embeddings,
+    TextSplitter,
+    VectorStore,
 )
 from polyrag.core.models import RAGResponse
 from polyrag.embeddings import resolve_embedding_model
-from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
 from polyrag.llms import resolve_llm_client
-from polyrag.llms.openai import OpenAILLM
 from polyrag.pipelines.advanced import AdvancedRAG
 from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent
-from polyrag.vector_stores.chroma import ChromaVectorStore
-from polyrag.vector_stores.memory import InMemoryVectorStore
+from polyrag.vector_stores import InMemoryVectorStore, resolve_vector_store
 
 
 class PolyRAG:
@@ -54,20 +55,26 @@ class PolyRAG:
         embedding: BaseEmbeddingModel | str | Any | None = None,
         chat_model: BaseLLMClient | str | Any | None = None,
         llm: BaseLLMClient | str | Any | None = None,
+        client: BaseLLMClient | str | Any | None = None,
+        embedding_service: BaseEmbeddingModel | str | Any | None = None,
+        vector_db: BaseVectorStore | None = None,
+        chunking_service: BaseChunker | str | None = None,
     ) -> None:
-        target_emb = embedding if embedding is not None else embedding_model
-        target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
+        target_chunker = chunker if chunker is not None else chunking_service
+        target_emb = embedding if embedding is not None else (embedding_model if embedding_model is not None else embedding_service)
+        target_vdb = vector_store if vector_store is not None else vector_db
+        target_llm = chat_model if chat_model is not None else (llm if llm is not None else (llm_client if llm_client is not None else client))
 
         if container is not None:
             self.container = container
-            self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else resolve_chunker(chunker)
+            self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else resolve_chunker(target_chunker)
             self.embedding_model = container.resolve(BaseEmbeddingModel) if container.is_registered(BaseEmbeddingModel) else resolve_embedding_model(target_emb)
-            self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (vector_store or InMemoryVectorStore(embedding=self.embedding_model))
+            self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (target_vdb or InMemoryVectorStore(embedding=self.embedding_model))
             self.llm_client = container.resolve(BaseLLMClient) if container.is_registered(BaseLLMClient) else resolve_llm_client(target_llm)
         else:
-            self.chunker = resolve_chunker(chunker)
+            self.chunker = resolve_chunker(target_chunker)
             self.embedding_model = resolve_embedding_model(target_emb)
-            self.vector_store = vector_store or InMemoryVectorStore(embedding=self.embedding_model)
+            self.vector_store = target_vdb or InMemoryVectorStore(embedding=self.embedding_model)
             self.llm_client = resolve_llm_client(target_llm)
             self.container = Container.create(
                 chunker=self.chunker,
@@ -133,11 +140,11 @@ class PolyRAG:
         target_emb = embedding if embedding is not None else embedding_model
         emb = resolve_embedding_model(target_emb)
 
-        vdb: BaseVectorStore
+        vdb: BaseVectorStore | VectorStore
         if vector_store is not None:
             vdb = vector_store
         elif persist_dir:
-            vdb = ChromaVectorStore(persist_directory=str(persist_dir), collection_name=collection_name)
+            vdb = resolve_vector_store("chroma", persist_directory=str(persist_dir), collection_name=collection_name, embedding=emb)
         else:
             vdb = InMemoryVectorStore(embedding=emb)
 
@@ -421,15 +428,20 @@ class PolyRAG:
         top_k: int = 3,
         max_rounds: int = 2,
         verbose: bool = False,
-    ) -> Any:
-        """Create an AgenticRAGService facade instance."""
-        from polyrag.service import AgenticRAGService
-        return AgenticRAGService(
-            rag_service=self,
+        **kwargs: Any,
+    ) -> AgenticRAG:
+        """Create an AgenticRAG pipeline instance."""
+        return self.create_agentic_rag(
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
+            **kwargs,
         )
+
+    # Pipeline alias shortcuts
+    as_naive = create_naive_rag
+    as_advanced = create_advanced_rag
+    as_agentic = create_agentic_rag
 
     def create_react_agent(
         self,
@@ -466,6 +478,9 @@ class PolyRAG:
             verbose=verbose,
         )
 
+    as_react = create_react_agent
+    as_react_agent = create_react_agent
+
     # -------------------------------------------------------------------------
     # Execution Shortcut
     # -------------------------------------------------------------------------
@@ -479,4 +494,7 @@ class PolyRAG:
         return self._default_pipeline.execute(question=question, top_k=top_k)
 
 
-__all__ = ["PolyRAG"]
+# Backward-compatible alias
+RAGService = PolyRAG
+
+__all__ = ["PolyRAG", "RAGService"]

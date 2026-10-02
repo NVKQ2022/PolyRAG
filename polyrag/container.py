@@ -18,15 +18,12 @@ from polyrag.core.interfaces import (
     VectorStore,
 )
 from polyrag.embeddings import resolve_embedding_model
-from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
 from polyrag.exceptions import ConfigurationError
 from polyrag.llms import resolve_llm_client
-from polyrag.llms.openai import OpenAILLM
 from polyrag.pipelines.agentic import AgenticRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent
-from polyrag.vector_stores.chroma import ChromaVectorStore
-from polyrag.vector_stores.memory import InMemoryVectorStore
+from polyrag.vector_stores import InMemoryVectorStore, resolve_vector_store
 
 T = TypeVar("T")
 
@@ -213,10 +210,7 @@ class Container:
         # Vector Store
         try:
             if persist_dir and Path(persist_dir).exists():
-                vdb: BaseVectorStore = ChromaVectorStore(
-                    persist_path=persist_dir,
-                    collection_name=collection_name,
-                )
+                vdb = resolve_vector_store("chroma", persist_directory=str(persist_dir), collection_name=collection_name)
             else:
                 vdb = InMemoryVectorStore()
         except Exception:
@@ -224,7 +218,12 @@ class Container:
         container.register_instance(BaseVectorStore, vdb)
 
         # LLM Client
-        container.register_instance(BaseLLMClient, OpenAILLM(model_name=model_name))
+        try:
+            resolved_llm = resolve_llm_client(model_name=model_name)
+        except Exception:
+            resolved_llm = None
+        if resolved_llm is not None:
+            container.register_instance(BaseLLMClient, resolved_llm)
 
         return container
 
@@ -401,9 +400,8 @@ class Container:
         return PolyRAG.from_container(self)
 
     def build_service(self) -> Any:
-        """Construct RAGService facade using injected dependencies."""
-        from polyrag.service import RAGService
-        return RAGService.from_container(self)
+        """Construct PolyRAG application context using injected dependencies."""
+        return self.build_app()
 
     def build_agentic_service(
         self,
@@ -411,10 +409,8 @@ class Container:
         max_rounds: int = 2,
         verbose: bool = False,
     ) -> Any:
-        """Construct AgenticRAGService facade using injected dependencies."""
-        from polyrag.service import AgenticRAGService
-        return AgenticRAGService.from_container(
-            self,
+        """Construct AgenticRAG pipeline using injected dependencies."""
+        return self.build_agentic_rag(
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
