@@ -38,17 +38,17 @@ The **Naive RAG** (`polyrag.NaiveRAG`) pipeline is the direct implementation of 
 from polyrag import (
     NaiveRAG,
     RecursiveCharacterChunker,
-    SentenceTransformerEmbedding,
     InMemoryVectorStore,
-    OpenAILLM,
+    resolve_embedding_model,
+    ChatOpenAI,
 )
 
 # 1. Instantiate Pipeline
 rag = NaiveRAG(
     chunker=RecursiveCharacterChunker(chunk_size=500, chunk_overlap=50),
-    embedding_model=SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2"),
+    embedding_model=resolve_embedding_model(None),  # Zero-setup local FakeEmbeddings or "openai"
     vector_store=InMemoryVectorStore(),
-    llm_client=OpenAILLM(model_name="gpt-4o-mini"),
+    chat_model=ChatOpenAI(model="gpt-4o-mini"),
 )
 
 # 2. Ingest Technical Content

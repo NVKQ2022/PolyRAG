@@ -43,6 +43,10 @@ rag.ingest_text(
 # Ingest single file from disk
 rag.ingest_file(file_path="docs/architecture.pdf")
 
+# Ingest from LangChain Document Loader (PDF, CSV, Notion, Web)
+from langchain_community.document_loaders import PyPDFLoader
+rag.ingest_langchain_loader(PyPDFLoader("docs/spec.pdf"))
+
 # Recursively ingest an entire folder
 rag.ingest_directory(dir_path="knowledge_base/", glob_pattern="**/*.md")
 

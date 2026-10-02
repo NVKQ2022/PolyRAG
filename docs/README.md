@@ -28,20 +28,19 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 
 ### 5. [Modules Documentation](modules/)
 - [Modules Overview & Catalog](modules/README.md): Architecture overview and index of all PolyRAG packages.
-- [Core Module](modules/core.md): Domain models (`Document`, `Chunk`, `SearchResult`, `RAGResponse`), abstract ports, and exceptions.
+- [Core Module](modules/core.md): Domain models (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`), abstract ports, and exceptions.
 - [Chunkers Module](modules/chunkers.md): `FixedSizeChunker` and `RecursiveCharacterChunker` algorithms and configuration.
-- [Embeddings Module](modules/embeddings.md): `SentenceTransformerEmbedding` (local offline) and `OpenAIEmbedding` (cloud).
-- [Vector Stores Module](modules/vector_stores/README.md): [ChromaDB](modules/vector_stores/chroma.md), [Milvus](modules/vector_stores/milvus.md), and [InMemory](modules/vector_stores/memory.md).
-- [LLMs Module](modules/llms.md): `OpenAILLM` with support for OpenAI, Azure OpenAI, and local inference engines.
+- [Embeddings Module](modules/embeddings.md): Native LangChain `Embeddings` (`OpenAIEmbeddings`, `HuggingFaceEmbeddings`), `FakeEmbeddings`, and resolution.
+- [Vector Stores Module](modules/vector-stores.md): Built-in `InMemoryVectorStore` and native LangChain `VectorStore` integration (`Chroma`, `Milvus`, `FAISS`, etc.).
+- [LLMs Module](modules/llms.md): Native LangChain `BaseChatModel`, `ChatOpenAI`, streaming, and tool binding.
 - [Pipelines Module](modules/pipelines.md): `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
 - [Container Module](modules/container.md): Inversion of Control (IoC) Dependency Injection `Container`.
-- [App & Service Module](modules/app.md): Central `PolyRAG` application context and legacy `RAGService` compatibility layer.
-- [Adapters & Ecosystem Bridges](modules/adapters/README.md): [LangChain Document Loader Bridge](modules/adapters/langchain.md).
+- [App & Service Module](modules/app.md): Central `PolyRAG` application context, LangChain document loader ingestion, and `RAGService` compatibility layer.
 
 ### 6. [API Reference](api-reference/)
 - [Core Models & Interfaces](api-reference/core.md): Domain dataclasses (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`), abstract interfaces, and exceptions.
 - [Pipelines Reference](api-reference/pipelines.md): Complete method signatures for `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
-- [Services & DI Container](api-reference/service.md): Complete method signatures for `RAGService`, `AgenticRAGService`, and `Container`.
+- [Services & DI Container](api-reference/service.md): Complete method signatures for `PolyRAG`, `Container`, and `RAGService`.
 
 ### 7. [Roadmap](roadmap/)
 - [GraphRAG & Hybrid Search](roadmap/graphrag.md): Architecture plans for knowledge graph extraction, community summarization, and Reciprocal Rank Fusion.

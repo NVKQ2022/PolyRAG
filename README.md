@@ -56,10 +56,10 @@ All derived pipelines inherit shared document ingestion (`ingest_text`, `ingest_
   - Full support for Singleton and Transient scopes, lifecycle management, and 1-line test mocking.
 
 - **Clean & Swappable Components**:
-  - **Vector Stores**: `InMemoryVectorStore` (zero-dependency cosine/L2/dot similarity), `MilvusVectorStore`, `MilvusLiteVectorStore`, `ChromaVectorStore`.
+  - **Vector Stores**: Built-in `InMemoryVectorStore` (zero-dependency cosine/L2/dot similarity) or any LangChain `VectorStore` (`Chroma`, `Milvus`, `FAISS`, `Pinecone`, `PGVector`, `Qdrant`).
   - **Chunkers**: `FixedSizeChunker`, `RecursiveCharacterChunker` (subclassing LangChain's `TextSplitter`).
-  - **Embeddings**: `SentenceTransformerEmbedding`, `OpenAIEmbedding` (subclassing LangChain's `Embeddings`).
-  - **Chat Models**: `ChatOpenAI`, `OpenAIChatModel`, `OpenAILLM` (supporting OpenAI, Azure, and vLLM).
+  - **Embeddings**: Built-in `FakeEmbeddings` for zero-setup local dev or any LangChain `Embeddings` (`OpenAIEmbeddings`, `HuggingFaceEmbeddings`, `OllamaEmbeddings`, `CohereEmbeddings`).
+  - **Chat Models**: Standard LangChain `BaseChatModel` and `ChatOpenAI` (supporting OpenAI, Anthropic, Gemini, Ollama, Azure, and vLLM).
 
 ---
 
@@ -70,27 +70,32 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory:
 - **[Getting Started](docs/getting-started/)**: [Installation](docs/getting-started/installation.md) & [Quickstart](docs/getting-started/quickstart.md)
 - **[Configuration](docs/configuration/)**: [Environment Variables](docs/configuration/environment.md), [Custom Pipelines](docs/configuration/custom-pipeline.md), & [Dependency Injection Guide](docs/configuration/dependency-injection.md)
 - **[Guides](docs/guides/)**: [Class Hierarchy](docs/guides/class-hierarchy.md), [Naive RAG](docs/guides/naive-rag.md), [Advanced RAG](docs/guides/advanced-rag.md), [Agentic RAG](docs/guides/agentic-rag.md), & [ReAct Agent](docs/guides/react-agent.md)
+- **[Modules](docs/modules/)**: [Vector Stores](docs/modules/vector-stores.md), [Embeddings](docs/modules/embeddings.md), [LLMs](docs/modules/llms.md), [Chunkers](docs/modules/chunkers.md), [App & Factory](docs/modules/app.md)
 - **[API Reference](docs/api-reference/)**: [Core Entities](docs/api-reference/core.md), [Pipelines](docs/api-reference/pipelines.md), & [Services / Container](docs/api-reference/service.md)
 - **[Roadmap](docs/roadmap/)**: [GraphRAG & Hybrid Search](docs/roadmap/graphrag.md)
+- **[Deep Analysis](docs/deep-agents/)**: [Deep Agents Cost & Architecture](docs/deep-agents/README.md)
 
 ---
 
 ## 📦 Installation
 
 ```bash
-# Minimal installation (core dataclasses, interfaces, in-memory store)
+# Minimal installation (core pipelines, DI container, in-memory vector store)
 pip install polyrag
 
-# With OpenAI support
+# With OpenAI support (langchain-openai)
 pip install "polyrag[openai]"
 
-# With local HuggingFace embeddings
-pip install "polyrag[embeddings]"
-
-# With ChromaDB vector store
+# With ChromaDB vector store (langchain-chroma)
 pip install "polyrag[chroma]"
 
-# Complete installation with all adapters
+# With Milvus vector store (langchain-milvus)
+pip install "polyrag[milvus]"
+
+# With HuggingFace embeddings (langchain-huggingface)
+pip install "polyrag[huggingface]"
+
+# Complete installation with all official partner packages
 pip install "polyrag[all]"
 ```
 

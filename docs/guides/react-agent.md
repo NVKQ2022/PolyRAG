@@ -46,15 +46,15 @@ The **ReAct Agent** (`polyrag.ReActAgent` / `polyrag.ReActRAG`) implements the *
 ```python
 from polyrag import (
     ReActAgent,
-    SentenceTransformerEmbedding,
     InMemoryVectorStore,
-    OpenAILLM,
+    resolve_embedding_model,
+    ChatOpenAI,
 )
 
 # 1. Initialize dependencies
-emb = SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2")
+emb = resolve_embedding_model(None)  # Zero-setup local FakeEmbeddings or "openai"
 vdb = InMemoryVectorStore()
-llm = OpenAILLM(model_name="gpt-4o-mini")
+llm = ChatOpenAI(model="gpt-4o-mini")
 
 # 2. Ingest document via BaseRAG interface
 agent = ReActAgent(

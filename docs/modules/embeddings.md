@@ -1,109 +1,89 @@
 # Module: `polyrag.embeddings` 🧬
 
-The `polyrag.embeddings` module converts text into dense, normalized vector representations suitable for similarity search in vector databases.
+The `polyrag.embeddings` module provides dense vector encoding for text chunks and search queries.
+
+PolyRAG is built natively on LangChain's [`Embeddings`](https://python.langchain.com/docs/concepts/embedding_models/) interface. You can plug in **any embedding model from the LangChain ecosystem** (OpenAI, HuggingFace, Ollama, Cohere, Bedrock, VertexAI) with zero wrapper code.
 
 ---
 
-## 1. Available Embedding Adapters
+## 1. Universal LangChain Embeddings Integration
 
-| Adapter | Backend | Network Required | Default Model | Dimension |
-| :--- | :--- | :--- | :--- | :--- |
-| **`SentenceTransformerEmbedding`** | Local PyTorch / HuggingFace | ❌ No (runs 100% locally offline) | `all-MiniLM-L6-v2` | 384 |
-| **`OpenAIEmbedding`** | OpenAI / Azure API | ✅ Yes | `text-embedding-3-small` | 1536 |
-
----
-
-## 2. `SentenceTransformerEmbedding`
-
-Runs state-of-the-art embedding models locally on CPU or GPU without sending data outside your infrastructure.
-
-### Installation
-```bash
-pip install "polyrag[embeddings]"
-```
-
-### Usage
-```python
-from polyrag.embeddings import SentenceTransformerEmbedding
-
-# Default model: 'all-MiniLM-L6-v2' (dim: 384)
-embedder = SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2")
-
-print(f"Embedding dimension: {embedder.dim}")
-
-# Single text
-vector = embedder.embed_text("Semantic search with dense vectors")
-print(f"Vector length: {len(vector)}")
-
-# Batch processing
-vectors = embedder.embed_batch(
-    ["First sentence", "Second sentence", "Third sentence"],
-    batch_size=64,
-)
-```
-
-### Key Features
-* **Auto Dimension Detection**: Safely detects embedding dimension via `get_embedding_dimension()` across `sentence-transformers` versions.
-* **L2 Normalized**: Embeddings are pre-normalized (`normalize_embeddings=True`), allowing fast dot product / cosine similarity comparisons.
-
----
-
-## 3. `OpenAIEmbedding`
-
-High-throughput, cloud-managed embedding adapter supporting OpenAI and OpenAI-compatible endpoints (vLLM, Ollama, Azure OpenAI).
-
-### Installation
-```bash
-pip install "polyrag[openai]"
-```
-
-### Usage
-```python
-from polyrag.embeddings import OpenAIEmbedding
-
-embedder = OpenAIEmbedding(
-    model_name="text-embedding-3-small",  # 1536 dims (or 'text-embedding-3-large' - 3072 dims)
-    api_key="sk-...",                     # Optional if OPENAI_API_KEY is in environment
-)
-
-vector = embedder.embed_text("Query text for retrieval")
-```
-
-### Custom Endpoints & Azure OpenAI
-You can point `OpenAIEmbedding` to self-hosted vLLM or local Ollama servers:
+Any class conforming to LangChain's `Embeddings` protocol (`embed_documents` and `embed_query`) works directly in PolyRAG:
 
 ```python
-embedder = OpenAIEmbedding(
-    model_name="bge-m3",
-    base_url="http://localhost:8000/v1",
-    api_key="EMPTY",
-)
+# OpenAI Embeddings
+from langchain_openai import OpenAIEmbeddings
+openai_emb = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Local HuggingFace Embeddings
+from langchain_huggingface import HuggingFaceEmbeddings
+hf_emb = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+# Local Ollama Embeddings
+# from langchain_community.embeddings import OllamaEmbeddings
+# ollama_emb = OllamaEmbeddings(model="nomic-embed-text")
 ```
 
 ---
 
-## 4. Custom Embedding Adapter
+## 2. Zero-Setup Local Development: `FakeEmbeddings`
 
-To connect any custom embedding engine (e.g. Cohere, Bedrock, Vertex AI), implement `BaseEmbeddingModel`:
+When you want to prototype or run unit tests without downloading weights or making API calls, PolyRAG provides `FakeEmbeddings` with deterministic dimension:
 
 ```python
-from polyrag.core.interfaces import BaseEmbeddingModel
+from polyrag.embeddings import resolve_embedding_model
 
-class CohereEmbedding(BaseEmbeddingModel):
-    def __init__(self, api_key: str, model_name: str = "embed-english-v3.0"):
-        import cohere
-        self.client = cohere.Client(api_key=api_key)
-        self.model_name = model_name
+# Generates deterministic synthetic embeddings of dimension 384
+emb = resolve_embedding_model("fake", size=384)
 
-    @property
-    def dim(self) -> int:
-        return 1024
-
-    def embed_text(self, text: str) -> list[float]:
-        res = self.client.embed(texts=[text], model=self.model_name)
-        return res.embeddings[0]
-
-    def embed_batch(self, texts: list[str], batch_size: int = 128) -> list[list[float]]:
-        res = self.client.embed(texts=texts, model=self.model_name)
-        return res.embeddings
+vec = emb.embed_query("Sample text")
+print(len(vec))  # 384
 ```
+
+---
+
+## 3. Automatic Resolution via `resolve_embedding_model`
+
+PolyRAG provides a flexible resolver function:
+
+```python
+from polyrag.embeddings import resolve_embedding_model
+
+# 1. Defaults to zero-setup FakeEmbeddings(size=384) if None
+emb = resolve_embedding_model(None)
+
+# 2. String alias for OpenAI
+# Automatically instantiates langchain_openai.OpenAIEmbeddings
+emb = resolve_embedding_model("openai")
+emb = resolve_embedding_model("text-embedding-3-small")
+
+# 3. String alias for HuggingFace / Local
+# Automatically instantiates langchain_huggingface.HuggingFaceEmbeddings
+emb = resolve_embedding_model("all-MiniLM-L6-v2")
+
+# 4. Direct LangChain Embeddings instance
+emb = resolve_embedding_model(my_langchain_embeddings)
+
+# 5. Custom Duck-typed class
+class MyCustomEmbedder:
+    def embed_query(self, text: str) -> list[float]:
+        return [0.1] * 128
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [[0.1] * 128 for _ in texts]
+
+emb = resolve_embedding_model(MyCustomEmbedder())
+```
+
+---
+
+## 4. `BaseEmbeddingModel` Interface Contract
+
+PolyRAG defines `BaseEmbeddingModel`, which subclasses LangChain's `Embeddings` while supporting both LangChain and PolyRAG ports:
+
+| Method / Property | Source | Purpose |
+| :--- | :--- | :--- |
+| `dim -> int` | PolyRAG | Returns vector dimensionality (e.g. 384, 1536). |
+| `embed_text(text: str) -> list[float]` | PolyRAG Port | Single text embedding generation. |
+| `embed_batch(texts: list[str]) -> list[list[float]]` | PolyRAG Port | Batch embedding generation. |
+| `embed_query(text: str) -> list[float]` | LangChain Standard | Query text embedding generation. |
+| `embed_documents(texts: list[str]) -> list[list[float]]` | LangChain Standard | Document batch embedding generation. |

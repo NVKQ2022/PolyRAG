@@ -12,13 +12,13 @@ PolyRAG includes an `InMemoryVectorStore` and supports offline local embeddings.
 from polyrag import (
     NaiveRAG,
     RecursiveCharacterChunker,
-    SentenceTransformerEmbedding,
     InMemoryVectorStore,
+    resolve_embedding_model,
 )
 
-# 1. Initialize components
+# 1. Initialize components (zero API key / zero dependency local mode)
 chunker = RecursiveCharacterChunker(chunk_size=300, chunk_overlap=40)
-embedding_model = SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2")
+embedding_model = resolve_embedding_model(None)  # Zero-setup local FakeEmbeddings
 vector_store = InMemoryVectorStore()
 
 # 2. Assemble NaiveRAG pipeline

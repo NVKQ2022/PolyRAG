@@ -35,12 +35,12 @@ PolyRAG uses optional extras so your production builds stay slim. Install only w
 
 | Extra | Command | Description |
 | :--- | :--- | :--- |
-| **`[openai]`** | `pip install "polyrag[openai]"` | Official OpenAI SDK for LLM completions & embeddings |
-| **`[chroma]`** | `pip install "polyrag[chroma]"` | ChromaDB vector database for persistent local or remote collections |
-| **`[milvus]`** | `pip install "polyrag[milvus]"` | Milvus & Milvus Lite vector database (`pymilvus>=2.4.0`) |
-| **`[embeddings]`** | `pip install "polyrag[embeddings]"` | HuggingFace `sentence-transformers` & `torch` for offline local embeddings |
-| **`[all]`** | `pip install "polyrag[all]"` | Full production bundle with all vector stores, LLMs, and embeddings |
-| **`[dev]`** | `pip install "polyrag[dev]"` | Developer tools (`pytest`, `build`, `twine`) |
+| **`[openai]`** | `pip install "polyrag[openai]"` | Official `langchain-openai` package for OpenAI ChatModels & Embeddings |
+| **`[chroma]`** | `pip install "polyrag[chroma]"` | Official `langchain-chroma` package for local SQLite/HNSW vector storage |
+| **`[milvus]`** | `pip install "polyrag[milvus]"` | Official `langchain-milvus` package for Milvus & Milvus Lite (`.db`) |
+| **`[huggingface]`** | `pip install "polyrag[huggingface]"` | Official `langchain-huggingface` for local open-source transformer embeddings |
+| **`[all]`** | `pip install "polyrag[all]"` | Full bundle with all LangChain partner packages, LangGraph, and web APIs |
+| **`[dev]`** | `pip install "polyrag[dev]"` | Developer test and build suite (`pytest`, `build`, `twine`) |
 
 ---
 

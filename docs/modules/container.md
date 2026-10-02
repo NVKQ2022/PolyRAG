@@ -26,14 +26,14 @@ BaseChunker    BaseEmbeddingModel        BaseVectorStore      BaseLLMClient
 ```python
 from polyrag.container import Container
 from polyrag.core.interfaces import BaseVectorStore, BaseEmbeddingModel
-from polyrag.vector_stores import MilvusVectorStore
-from polyrag.embeddings import SentenceTransformerEmbedding
+from polyrag.vector_stores import InMemoryVectorStore
+from polyrag.embeddings import resolve_embedding_model
 
 container = Container()
 
 # Bind concrete instances to abstract interfaces
-container.register_instance(BaseVectorStore, MilvusVectorStore(uri="./local.db"))
-container.register_instance(BaseEmbeddingModel, SentenceTransformerEmbedding())
+container.register_instance(BaseVectorStore, InMemoryVectorStore())
+container.register_instance(BaseEmbeddingModel, resolve_embedding_model(None))
 
 # Resolve at runtime
 vdb = container.resolve(BaseVectorStore)
@@ -44,12 +44,12 @@ Factories are evaluated only when first requested. By default, factories act as 
 
 ```python
 from polyrag.core.interfaces import BaseLLMClient
-from polyrag.llms import OpenAILLM
+from polyrag.llms import ChatOpenAI
 
 # Singleton factory (only initialized on first .resolve() call)
 container.register_factory(
     BaseLLMClient,
-    lambda: OpenAILLM(model_name="gpt-4o-mini"),
+    lambda: ChatOpenAI(model="gpt-4o-mini"),
     singleton=True,
 )
 ```

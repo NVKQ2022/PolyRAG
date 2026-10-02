@@ -45,18 +45,17 @@ Every decision, latency measurement, and retrieved chunk is recorded in `agent_l
 
 ## 2. Code Example
 
-```python
-from polyrag import AgenticRAG, SentenceTransformerEmbedding, InMemoryVectorStore, OpenAILLM, RAGService
+from polyrag import AgenticRAG, PolyRAG
 
-# 1. Instantiate via Facade or standalone
-service = RAGService.from_env()
+# 1. Instantiate via PolyRAG application context
+app = PolyRAG.from_env()
 
 # Ingest multi-hop documents
-service.ingest("HTTP/3 is built on the QUIC transport protocol (RFC 9000).", source="rfc9114.txt")
-service.ingest("QUIC handles connection migration using Connection IDs across IP changes.", source="rfc9000.txt")
+app.ingest("HTTP/3 is built on the QUIC transport protocol (RFC 9000).", source="rfc9114.txt")
+app.ingest("QUIC handles connection migration using Connection IDs across IP changes.", source="rfc9000.txt")
 
 # 2. Create Agentic RAG
-agentic = service.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
+agentic = app.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
 
 # 3. Multi-hop query requiring information from both documents
 response = agentic.query(

@@ -1,10 +1,10 @@
 # Custom Pipeline Configuration
 
-PolyRAG is architected around the **Dependency Inversion Principle**. Every component adheres to abstract interfaces defined in `polyrag.core.interfaces`. You can swap any component or write custom implementations without modifying core pipelines.
+PolyRAG is architected around the **Dependency Inversion Principle** and native LangChain compatibility. Every component adheres to standard interfaces defined in `polyrag.core.interfaces` and `langchain_core`. You can swap any component or pass any LangChain partner package without modifying core pipelines.
 
 ---
 
-## 1. Chunkers (`BaseChunker`)
+## 1. Chunkers (`BaseChunker` / `TextSplitter`)
 
 ### `RecursiveCharacterChunker` (Recommended)
 Recursively splits text using natural hierarchy (paragraphs, newlines, sentences, spaces):
@@ -35,34 +35,39 @@ chunker = FixedSizeChunker(
 
 ---
 
-## 2. Embeddings (`BaseEmbeddingModel`)
+## 2. Embeddings (`BaseEmbeddingModel` / `Embeddings`)
 
-### `SentenceTransformerEmbedding` (Local PyTorch)
-Runs completely offline on CPU, CUDA, or MPS:
+PolyRAG accepts any LangChain `Embeddings` model or custom port implementation:
 
+### Local HuggingFace / Transformers (`langchain-huggingface`)
 ```python
-from polyrag import SentenceTransformerEmbedding
+from langchain_huggingface import HuggingFaceEmbeddings
 
-embedding_model = SentenceTransformerEmbedding(
-    model_name="all-MiniLM-L6-v2",
-    device="cuda",                   # 'cuda', 'cpu', 'mps'
-    normalize=True,                  # L2-normalize vectors for cosine similarity
+embedding_model = HuggingFaceEmbeddings(
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
 )
 ```
 
-### `OpenAIEmbedding` (Cloud API)
+### OpenAI Embeddings (`langchain-openai`)
 ```python
-from polyrag import OpenAIEmbedding
+from langchain_openai import OpenAIEmbeddings
 
-embedding_model = OpenAIEmbedding(
-    model_name="text-embedding-3-small",
-    api_key="sk-...",
+embedding_model = OpenAIEmbeddings(
+    model="text-embedding-3-small"
 )
+```
+
+### Zero-Setup Dev / Test Mode
+```python
+from polyrag.embeddings import resolve_embedding_model
+
+# Synthetic deterministic embeddings with no external network calls
+embedding_model = resolve_embedding_model("fake", size=384)
 ```
 
 ---
 
-## 3. Vector Stores (`BaseVectorStore`)
+## 3. Vector Stores (`BaseVectorStore` / `VectorStore`)
 
 ### `InMemoryVectorStore` (Zero-Dependency)
 Thread-safe in-memory vector store with cosine similarity ranking. Perfect for testing and ephemeral tasks:
@@ -73,27 +78,40 @@ from polyrag import InMemoryVectorStore
 vector_store = InMemoryVectorStore()
 ```
 
-### `ChromaVectorStore` (Persistent / Remote)
+### Chroma (`langchain-chroma`)
 ```python
-from polyrag import ChromaVectorStore
+from langchain_chroma import Chroma
 
-vector_store = ChromaVectorStore(
-    persist_path="./chroma_db",
+vector_store = Chroma(
+    collection_name="production_docs",
+    embedding_function=embedding_model,
+    persist_directory="./chroma_db",
+)
+```
+
+### Milvus & Milvus Lite (`langchain-milvus`)
+```python
+from langchain_milvus import Milvus
+
+vector_store = Milvus(
+    embedding_function=embedding_model,
+    connection_args={"uri": "./milvus_demo.db"},
     collection_name="production_docs",
 )
 ```
 
 ---
 
-## 4. LLM Clients (`BaseLLMClient`)
+## 4. Chat Models & LLMs (`BaseLLMClient` / `BaseChatModel`)
+
+Pass any standard LangChain ChatModel or use string resolution:
 
 ```python
-from polyrag import OpenAILLM
+from langchain_openai import ChatOpenAI
 
-llm = OpenAILLM(
-    model_name="gpt-4o-mini",
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
     temperature=0.1,
-    max_tokens=1024,
 )
 ```
 
@@ -104,7 +122,7 @@ llm = OpenAILLM(
 Once components are configured, pass them to any pipeline deriving from `BaseRAG`:
 
 ```python
-from polyrag import NaiveRAG, AdvancedRAG, AgenticRAG
+from polyrag import NaiveRAG, AdvancedRAG, AgenticRAG, ReActAgent
 
 # Standard Naive RAG
 naive = NaiveRAG(
@@ -134,22 +152,22 @@ agentic = AgenticRAG(
     max_rounds=2,
     verbose=True,
 )
+
+# ReAct Agent (Dynamic Tool Calling & Reasoning Loop)
+react = ReActAgent(
+    chunker=chunker,
+    embedding_model=embedding_model,
+    vector_store=vector_store,
+    llm_client=llm,
+    max_steps=4,
+)
 ```
 
 ---
 
-## 6. Implementing Custom Adapters
+## 6. Zero Custom Adapters Needed
 
-To integrate a new vector database (e.g. Qdrant, Pinecone) or embedding provider (e.g. Cohere, Gemini), subclass the base interfaces:
-
-```python
-from polyrag.core.interfaces import BaseVectorStore
-from typing import Any
-
-class CustomVectorStore(BaseVectorStore):
-    def clear(self) -> None: ...
-    def add_documents(self, vectors: list[list[float]], documents: list[dict[str, Any]], batch_size: int = 5000) -> None: ...
-    def search(self, query_vector: list[float], top_k: int = 5) -> list[dict[str, Any]]: ...
-    def count(self) -> int: ...
-    def peek(self, limit: int = 5) -> Any: ...
-```
+Because PolyRAG natively implements LangChain interfaces:
+- Any vector database supported by LangChain (Pinecone, Qdrant, PGVector, FAISS, Weaviate) works out-of-the-box.
+- Any LLM supported by LangChain (Claude, Gemini, Ollama, Groq, Mistral) works out-of-the-box.
+- No adapter shims or custom driver classes required!

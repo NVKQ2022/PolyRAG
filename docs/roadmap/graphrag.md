@@ -62,13 +62,12 @@ GraphRAG extracts structured entities, discovers latent community clusters, gene
 ### Planned Syntax
 
 ```python
-from polyrag import GraphRAG, ChromaVectorStore, NetworkXGraphStore, OpenAILLM
+from polyrag import GraphRAG, InMemoryVectorStore, ChatOpenAI
 
 # Planned future usage:
 graph_rag = GraphRAG(
-    vector_store=ChromaVectorStore(persist_path="./chroma_db"),
-    graph_store=NetworkXGraphStore(persist_path="./graph.json"),
-    llm_client=OpenAILLM(model_name="gpt-4o"),
+    vector_store=InMemoryVectorStore(),
+    llm_client=ChatOpenAI(model="gpt-4o"),
 )
 
 # Global corpus-level reasoning

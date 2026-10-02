@@ -60,6 +60,8 @@ def from_container(cls, container: Container) -> PolyRAG: ...
 - `ingest_text(text: str, source: str = "document", metadata: dict | None = None) -> list[dict]`
 - `ingest_file(file_path: Path | str, metadata: dict | None = None) -> list[dict]`
 - `ingest_directory(dir_path: Path | str, glob_pattern: str = "*.txt", metadata: dict | None = None) -> list[dict]`
+- `ingest_langchain_loader(loader: Any, metadata: dict | None = None) -> list[dict]` *(Accepts any LangChain Document Loader, e.g. PyPDFLoader, CSVLoader)*
+- `ingest_documents(documents: Iterable[Any], metadata: dict | None = None) -> list[dict]` *(Accepts LangChain Documents, PolyRAG Documents, or dicts)*
 
 ### Shared Retrieval & Context Formatting
 - `retrieve(query: str, top_k: int = 5) -> list[dict]`

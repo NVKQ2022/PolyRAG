@@ -91,48 +91,64 @@ class AgentResponse:
     llm_calls: int
 ```
 
+### `LangChainDocumentConverter`
+Bidirectional converter between LangChain Document objects and PolyRAG Document models:
+```python
+class LangChainDocumentConverter:
+    @staticmethod
+    def to_polyrag_document(lc_doc: Any) -> Document: ...
+
+    @staticmethod
+    def to_polyrag_documents(lc_docs: Iterable[Any]) -> list[Document]: ...
+
+    @staticmethod
+    def to_langchain_document(doc: Document) -> Any: ...
+
+    @staticmethod
+    def to_langchain_documents(docs: Iterable[Document]) -> list[Any]: ...
+```
+
+### Message Models
+Lightweight dataclasses conforming to LangChain message structures:
+- `BaseMessage(content, type, additional_kwargs)`
+- `HumanMessage(content)`
+- `AIMessage(content, tool_calls)`
+- `SystemMessage(content)`
+- `ToolMessage(content, tool_call_id)`
+
 ---
 
 ## 2. Abstract Interfaces (`polyrag.core.interfaces`)
 
-### `BaseChunker`
+PolyRAG interfaces inherit directly from LangChain's official base classes while preserving PolyRAG's clean port methods.
+
+### `BaseChunker` (subclasses `langchain_text_splitters.TextSplitter`)
 ```python
-class BaseChunker(ABC):
-    @abstractmethod
+class BaseChunker(TextSplitter, ABC):
     def chunk(self, text: str) -> list[str]: ...
+    def split_text(self, text: str) -> list[str]: ...
 ```
 
-### `BaseEmbeddingModel`
+### `BaseEmbeddingModel` (subclasses `langchain_core.embeddings.Embeddings`)
 ```python
-class BaseEmbeddingModel(ABC):
+class BaseEmbeddingModel(Embeddings, ABC):
     @property
-    @abstractmethod
     def dim(self) -> int: ...
-
-    @abstractmethod
     def embed_text(self, text: str) -> list[float]: ...
-
-    @abstractmethod
     def embed_batch(self, texts: list[str], batch_size: int = 128) -> list[list[float]]: ...
+    def embed_query(self, text: str) -> list[float]: ...
+    def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
 ```
 
-### `BaseVectorStore`
+### `BaseVectorStore` (subclasses `langchain_core.vectorstores.VectorStore`)
 ```python
-class BaseVectorStore(ABC):
-    @abstractmethod
+class BaseVectorStore(VectorStore, ABC):
     def clear(self) -> None: ...
-
-    @abstractmethod
     def add_documents(self, vectors: list[list[float]], documents: list[dict[str, Any]], batch_size: int = 5000) -> None: ...
-
-    @abstractmethod
     def search(self, query_vector: list[float], top_k: int = 5) -> list[dict[str, Any]]: ...
-
-    @abstractmethod
     def count(self) -> int: ...
-
-    @abstractmethod
     def peek(self, limit: int = 5) -> Any: ...
+    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> list[LCDocument]: ...
 ```
 
 ### `BaseLLMClient`
@@ -141,15 +157,12 @@ class BaseLLMClient(ABC):
     @property
     @abstractmethod
     def model_name(self) -> str: ...
-
-    @abstractmethod
     def complete(self, prompt: str, **kwargs: Any) -> str: ...
-
-    @abstractmethod
     def complete_json(self, prompt: str, **kwargs: Any) -> dict[str, Any]: ...
-
-    @abstractmethod
     def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str: ...
+    def invoke(self, input: Any, **kwargs: Any) -> AIMessage: ...
+    def stream(self, input: Any, **kwargs: Any) -> Iterator[Any]: ...
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> Any: ...
 ```
 
 ---

@@ -2,6 +2,8 @@
 
 PolyRAG includes a lightweight, thread-safe **Dependency Injection (DI) Container** (`polyrag.Container`). It serves as the **Composition Root** for resolving, configuring, and assembling all components and pipelines.
 
+The `Container` supports both PolyRAG interfaces (`BaseVectorStore`, `BaseEmbeddingModel`, `BaseLLMClient`, `BaseChunker`) and native LangChain types (`VectorStore`, `Embeddings`, `BaseChatModel`, `TextSplitter`).
+
 ---
 
 ## 1. Core Concepts
@@ -25,19 +27,19 @@ from polyrag import (
     BaseVectorStore,
     BaseLLMClient,
     RecursiveCharacterChunker,
-    SentenceTransformerEmbedding,
     InMemoryVectorStore,
-    OpenAILLM,
+    resolve_embedding_model,
+    ChatOpenAI,
 )
 
 # 1. Initialize Container
 container = Container()
 
-# 2. Register Dependencies
+# 2. Register Dependencies (supports both PolyRAG & LangChain interfaces)
 container.register_instance(BaseChunker, RecursiveCharacterChunker(chunk_size=500, chunk_overlap=50))
-container.register_instance(BaseEmbeddingModel, SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2"))
+container.register_instance(BaseEmbeddingModel, resolve_embedding_model("fake", size=384))
 container.register_instance(BaseVectorStore, InMemoryVectorStore())
-container.register_instance(BaseLLMClient, OpenAILLM(model_name="gpt-4o-mini"))
+container.register_instance(BaseLLMClient, ChatOpenAI(model="gpt-4o-mini"))
 
 # 3. Resolve any component
 store = container.resolve(BaseVectorStore)
@@ -63,9 +65,8 @@ agentic = container.build_agentic_rag(top_k=3, max_rounds=2, verbose=True)
 # Build a ReAct Agent (Thought-Action-Observation tool loop)
 react = container.build_react_agent(max_steps=4)
 
-# Build high-level Facade Services
-service = container.build_service()
-agentic_service = container.build_agentic_service(top_k=3)
+# Build central PolyRAG Application Context
+app = container.build_app()
 ```
 
 ---
@@ -84,24 +85,31 @@ container = Container.from_env(
 
 ### With Custom Overrides
 ```python
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+
+emb = OpenAIEmbeddings(model="text-embedding-3-small")
+vdb = Chroma(collection_name="docs", embedding_function=emb)
+
 container = Container.create(
-    vector_store=InMemoryVectorStore(),
-    llm_client=OpenAILLM(model_name="gpt-4o"),
+    vector_store=vdb,
+    embedding_model=emb,
+    chat_model=ChatOpenAI(model="gpt-4o-mini"),
 )
 ```
 
 ---
 
-## 5. Integrating with `RAGService`
+## 5. Integrating with `PolyRAG`
 
-You can pass a configured container directly to `RAGService`:
+You can pass a configured container directly to `PolyRAG`:
 
 ```python
-from polyrag import RAGService
+from polyrag import PolyRAG
 
-service = RAGService.from_container(container)
-service.ingest_file("data/spec.txt")
-response = service.query("How does connection migration work?")
+app = PolyRAG.from_container(container)
+app.ingest_file("data/spec.txt")
+response = app.query("How does connection migration work?")
 print(response.answer)
 ```
 

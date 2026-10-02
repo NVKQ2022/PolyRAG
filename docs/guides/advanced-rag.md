@@ -53,26 +53,26 @@ $$RRF(d) = \sum_{q \in Q} \frac{1}{k + \text{rank}(d, q)}$$
 ```python
 from polyrag import (
     AdvancedRAG,
-    SentenceTransformerEmbedding,
     InMemoryVectorStore,
-    OpenAILLM,
-    RAGService,
+    PolyRAG,
+    resolve_embedding_model,
+    ChatOpenAI,
 )
 
 # Option A: Standalone pipeline
 advanced = AdvancedRAG(
-    embedding_model=SentenceTransformerEmbedding(model_name="all-MiniLM-L6-v2"),
+    embedding_model=resolve_embedding_model("openai"),
     vector_store=InMemoryVectorStore(),
-    llm_client=OpenAILLM(model_name="gpt-4o-mini"),
+    chat_model=ChatOpenAI(model="gpt-4o-mini"),
     num_expanded_queries=3,
     top_k=5,
     min_relevance_score=0.1,
     verbose=True,
 )
 
-# Option B: Creating from an existing RAGService in 1 line
-service = RAGService.from_env()
-advanced = service.create_advanced_rag(num_expanded_queries=3, top_k=5)
+# Option B: Creating from an existing PolyRAG application context in 1 line
+app = PolyRAG.from_env()
+advanced = app.create_advanced_rag(num_expanded_queries=3, top_k=5)
 
 # Execute query
 response = advanced.query("What mechanism does DNS use to handle UDP packet overflow?")

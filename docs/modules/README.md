@@ -1,6 +1,6 @@
 # PolyRAG Modules Directory 📦
 
-PolyRAG is architected into clean, decoupled, single-responsibility modules following hexagonal architecture (Ports and Adapters). Each module encapsulates a specific domain, strategy, or infrastructure provider.
+PolyRAG is architected into clean, decoupled, single-responsibility modules built directly on top of native LangChain primitives.
 
 ---
 
@@ -19,7 +19,7 @@ PolyRAG is architected into clean, decoupled, single-responsibility modules foll
     └────────┬────────┘             └────────┬────────┘             └────────┬────────┘
              │                               │                               │
              └───────────────────────┬───────┴───────────────────────────────┘
-                                     │ wires together
+                                     │ orchestrates
              ┌───────────────────────┼───────────────────────┐
              ▼                       ▼                       ▼
     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -41,19 +41,18 @@ PolyRAG is architected into clean, decoupled, single-responsibility modules foll
 | Module | Purpose | Key Classes & Exports | Documentation |
 | :--- | :--- | :--- | :--- |
 | **`polyrag.core`** | Domain models, abstract ports, and exceptions | `Document`, `Chunk`, `SearchResult`, `RAGResponse`, `BaseChunker`, `BaseEmbeddingModel`, `BaseVectorStore`, `BaseLLMClient` | [Core Guide](core.md) |
-| **`polyrag.chunkers`** | Text segmenting and token boundary management | `FixedSizeChunker`, `RecursiveCharacterChunker` | [Chunkers Guide](chunkers.md) |
-| **`polyrag.embeddings`** | Dense vector representations of text | `SentenceTransformerEmbedding`, `OpenAIEmbedding` | [Embeddings Guide](embeddings.md) |
-| **`polyrag.vector_stores`**| Nearest-neighbor vector index and metadata storage | `InMemoryVectorStore`, `ChromaVectorStore`, `MilvusVectorStore` | [Overview](vector_stores/README.md) · [Chroma](vector_stores/chroma.md) · [Milvus](vector_stores/milvus.md) · [Memory](vector_stores/memory.md) |
-| **`polyrag.llms`** | LLM completion, structured JSON parsing, and chat | `OpenAILLM` (supports OpenAI, Azure, and vLLM) | [LLMs Guide](llms.md) |
+| **`polyrag.chunkers`** | Text segmenting and token boundary management | `FixedSizeChunker`, `RecursiveCharacterChunker` (subclassing LangChain's `TextSplitter`) | [Chunkers Guide](chunkers.md) |
+| **`polyrag.embeddings`** | Dense vector representations of text | LangChain `Embeddings`, `FakeEmbeddings`, `resolve_embedding_model` | [Embeddings Guide](embeddings.md) |
+| **`polyrag.vector_stores`**| Nearest-neighbor vector index and metadata storage | `InMemoryVectorStore`, LangChain `VectorStore` (`Chroma`, `Milvus`, etc.), `resolve_vector_store` | [Vector Stores Guide](vector-stores.md) |
+| **`polyrag.llms`** | LLM completion, structured JSON parsing, and chat | LangChain `BaseChatModel`, `ChatOpenAI`, `resolve_llm_client` | [LLMs Guide](llms.md) |
 | **`polyrag.pipelines`** | End-to-end RAG workflows & reasoning paradigms | `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `ReActAgent` | [Pipelines Guide](pipelines.md) |
 | **`polyrag.container`** | Dependency Injection container and composition root | `Container` | [Container Guide](container.md) |
 | **`polyrag.app` / `service`** | High-level Application Context & pipeline factory | `PolyRAG`, `RAGService`, `AgenticRAGService` | [App & Service Guide](app.md) |
-| **`polyrag.adapters`** | External ecosystem bridges & loader converters | `LangChainDocumentConverter`, `ingest_langchain_loader` | [Adapters Guide](adapters/README.md) · [LangChain](adapters/langchain.md) |
 
 ---
 
 ## 💡 Design Principles
 
-1. **Dependency Inversion (DIP)**: High-level pipelines never depend directly on specific vendors (like Chroma, Milvus, or OpenAI). They depend strictly on the abstract interfaces defined in `polyrag.core.interfaces`.
-2. **Pluggability**: Every component can be swapped in one line of code—whether via `PolyRAG.create(...)` or the `Container`.
-3. **Graceful Fallbacks**: Optional external libraries (`chromadb`, `pymilvus`, `sentence-transformers`, `openai`) are imported lazily, providing clear error guidance if an extra is missing.
+1. **Native LangChain Interoperability**: PolyRAG leverages standard LangChain primitives (`VectorStore`, `Embeddings`, `BaseChatModel`, `TextSplitter`) directly—meaning any third-party LangChain integration works out-of-the-box.
+2. **Zero-Dependency Local Dev**: Start prototyping instantly with built-in `InMemoryVectorStore` and `FakeEmbeddings` with zero required external API keys or vector services.
+3. **Pluggability**: Every component can be swapped in one line of code—whether via `PolyRAG.create(...)` or the `Container`.

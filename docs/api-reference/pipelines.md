@@ -30,6 +30,12 @@ Reads a local text/markdown file and ingests it.
 #### `ingest_directory(dir_path: Path | str, glob_pattern: str = "*.txt", metadata: dict | None = None) -> list[dict]`
 Recursively scans and indexes all matching files in a directory.
 
+#### `ingest_langchain_loader(loader: Any, metadata: dict | None = None) -> list[dict]`
+Memory-safe streaming ingestion from any LangChain Document Loader (PDF, DOCX, CSV, Notion, Web, S3) via `loader.lazy_load()`.
+
+#### `ingest_documents(documents: Iterable[Any], metadata: dict | None = None) -> list[dict]`
+Ingests an iterable of LangChain `Document`s, PolyRAG `Document`s, or text dictionaries.
+
 #### `retrieve(query: str, top_k: int = 5) -> list[dict]`
 Generates embedding for `query` and searches the top-k nearest chunks in `self.vector_store`.
 

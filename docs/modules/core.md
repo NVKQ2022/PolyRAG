@@ -68,6 +68,20 @@ PolyRAG provides LangChain-compatible message models:
 
 ---
 
+### `LangChainDocumentConverter`
+Bidirectional converter between LangChain Document objects and PolyRAG Document models:
+```python
+from polyrag.core.models import LangChainDocumentConverter
+
+# Convert a LangChain document to a PolyRAG document
+poly_doc = LangChainDocumentConverter.to_polyrag_document(lc_doc)
+
+# Convert a generator/list of LangChain documents
+poly_docs = LangChainDocumentConverter.to_polyrag_documents(loader.lazy_load())
+```
+
+---
+
 ## 2. Abstract Ports & LangChain Bridges (`polyrag.core.interfaces`)
 
 PolyRAG uses the **Dual Compatibility Bridge Pattern**: each PolyRAG interface subclasses its corresponding LangChain primitive and bidirectionally implements both method signatures.
@@ -82,7 +96,7 @@ PolyRAG uses the **Dual Compatibility Bridge Pattern**: each PolyRAG interface s
 └────────────────┬────────────────┘
                  │ (Implements)
 ┌────────────────▼────────────────┐
-│ PolyRAG & Third-Party Adapters  │  (InMemoryVectorStore, MilvusVectorStore, ChromaVectorStore, etc.)
+│ PolyRAG & LangChain Ecosystem   │  (InMemoryVectorStore, langchain_chroma.Chroma, langchain_milvus.Milvus, etc.)
 └─────────────────────────────────┘
 ```
 

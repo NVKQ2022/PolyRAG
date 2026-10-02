@@ -1,6 +1,6 @@
 # Environment Configuration Reference
 
-PolyRAG supports declarative configuration through system environment variables and `.env` files. Both `RAGService.from_env()` and `Container.from_env()` read these parameters automatically.
+PolyRAG supports declarative configuration through system environment variables and `.env` files. Both `PolyRAG.from_env()` and `Container.from_env()` read these parameters automatically.
 
 ---
 
@@ -54,7 +54,7 @@ OPENAI_API_VERSION=2024-02-15-preview
 MODEL_NAME=gpt-4o-mini  # Your Azure deployment name
 ```
 
-PolyRAG's `OpenAILLM` adapter detects whether `responses.create` or `chat.completions` is available and normalizes the output seamlessly.
+PolyRAG resolves this directly via LangChain's native `ChatOpenAI` and `AzureChatOpenAI` interfaces.
 
 ---
 

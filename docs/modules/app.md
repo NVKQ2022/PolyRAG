@@ -2,16 +2,16 @@
 
 The `polyrag.app` module provides `PolyRAG`, the primary user-facing Application Context and Pipeline Factory for the entire framework.
 
-The `polyrag.service` module provides `RAGService` and `AgenticRAGService`, which inherit directly from `PolyRAG` to ensure 100% backward compatibility with legacy service code.
+The `polyrag.service` module provides `RAGService` and `AgenticRAGService`, which are backward-compatibility aliases to `PolyRAG` and `AgenticRAG`.
 
 ---
 
 ## 1. What is `PolyRAG`?
 
 `PolyRAG` acts as the single entry point for:
-1. **Configuring Environment & Storage**: Initializes your LLM, embeddings, vector database, and chunker.
-2. **Shared Ingestion**: Ingests files, raw text, and directories once into the underlying vector store.
-3. **Pipeline Factory**: Spawns specialized pipelines (`NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `ReActAgent`) that operate on the shared populated vector store.
+1. **Configuring Environment & Storage**: Sets up your LLM, embeddings, vector database, and chunker.
+2. **Shared Ingestion**: Ingests files, raw text, directories, and LangChain Document Loaders once into the underlying vector store.
+3. **Pipeline Factory**: Spawns specialized pipelines (`NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `ReActAgent`) that operate on the populated vector store.
 4. **Convenience Execution**: Directly answers questions using the default baseline strategy via `rag.query(...)`.
 
 ---
@@ -19,22 +19,25 @@ The `polyrag.service` module provides `RAGService` and `AgenticRAGService`, whic
 ## 2. Construction Methods
 
 ### A. Factory Method: `PolyRAG.create(...)` *(Recommended)*
-Explicitly inject your choice of components:
+Explicitly inject your choice of native LangChain components or PolyRAG interfaces:
 ```python
 from polyrag.app import PolyRAG
-from polyrag.vector_stores import MilvusVectorStore
-from polyrag.embeddings import SentenceTransformerEmbedding
-from polyrag.llms import OpenAILLM
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vector_store = Chroma(collection_name="kb_docs", embedding_function=embeddings)
+llm = ChatOpenAI(model="gpt-4o-mini")
 
 rag = PolyRAG.create(
-    vector_store=MilvusVectorStore(uri="./milvus_demo.db"),
-    embedding_model=SentenceTransformerEmbedding("all-MiniLM-L6-v2"),
-    llm_client=OpenAILLM(model_name="gpt-4o-mini"),
+    vector_store=vector_store,
+    embedding_model=embeddings,
+    chat_model=llm,
 )
 ```
 
 ### B. Environment Auto-Configuration: `PolyRAG.from_env(...)`
-Automatically reads `.env` and environment variables (`OPENAI_API_KEY`, `CHROMA_PERSIST_DIR`, `EMBEDDING_MODEL`):
+Automatically reads `.env` and environment variables (`OPENAI_API_KEY`, `CHROMA_PERSIST_DIR`, `MODEL_NAME`):
 ```python
 rag = PolyRAG.from_env()
 ```
@@ -52,17 +55,28 @@ rag = PolyRAG.from_container(container)
 Documents ingested into `PolyRAG` are chunked, embedded, and indexed once into the active vector store:
 
 ```python
-# Ingest raw text
+# 1. Ingest raw text
 rag.ingest_text(
     text="OAuth 2.0 uses access tokens and refresh tokens...",
     source="oauth_spec.md",
 )
 
-# Ingest a single file
-rag.ingest_file("docs/handbook.pdf")
+# 2. Ingest a single file
+rag.ingest_file("docs/rfc9000.txt")
 
-# Ingest an entire directory of documentation
+# 3. Ingest an entire directory of documentation
 rag.ingest_directory("knowledge_base/", glob_pattern="**/*.md")
+
+# 4. Ingest from 150+ LangChain Document Loaders (PDF, DOCX, CSV, Web)
+from langchain_community.document_loaders import PyPDFLoader
+loader = PyPDFLoader("data/annual_report.pdf")
+rag.ingest_langchain_loader(loader, metadata={"department": "finance"})
+
+# 5. Ingest arbitrary document iterables or generators
+rag.ingest_documents([
+    {"text": "Chunk text 1", "source": "doc1.txt"},
+    {"text": "Chunk text 2", "source": "doc2.txt"},
+])
 ```
 
 ---
@@ -76,11 +90,11 @@ Once data is ingested, you can instantiate any specialized RAG strategy sharing 
 naive = rag.create_naive_rag()
 res1 = naive.query("What is OAuth 2.0?")
 
-# 2. Advanced RAG with Query Expansion and RRF
+# 2. Advanced RAG with Multi-Query Expansion and RRF
 advanced = rag.create_advanced_rag(
     top_k=5,
     num_expanded_queries=3,
-    min_relevance_score=0.3,
+    min_relevance_score=0.1,
 )
 res2 = advanced.query("How do refresh tokens interact with token rotation?")
 
@@ -93,27 +107,20 @@ agentic = rag.create_agentic_rag(
 res3 = agentic.query("Compare OAuth 2.0 PKCE with client secrets.")
 
 # 4. Tool-Driven ReAct Agent
-agent = rag.create_react_agent(tools=[...], max_steps=5)
-res4 = agent.run("Investigate authentication errors in staging.")
+react = rag.create_react_agent(max_steps=5)
+res4 = react.query("Investigate authentication errors in staging.")
 ```
 
 ---
 
-## 5. `RAGService` & `AgenticRAGService` (`polyrag.service`)
+## 5. Backward Compatibility: `RAGService` & `AgenticRAGService`
 
-For existing applications using `RAGService`, `RAGService` subclasses `PolyRAG`:
+For existing code referencing `RAGService`, it is preserved as an alias for `PolyRAG`:
 
 ```python
 from polyrag.service import RAGService, AgenticRAGService
 
-# Drop-in compatible with all PolyRAG factory methods and query pipelines
 service = RAGService.from_env()
-service.ingest_text("System architecture details...", source="arch.md")
+service.ingest("System architecture details...", source="arch.md")
 response = service.query("Explain the architecture")
 ```
-
-| Class | Base Class | Recommendation |
-| :--- | :--- | :--- |
-| **`PolyRAG`** | Domain Object | **Use for new projects.** Primary application context and pipeline factory. |
-| **`RAGService`** | `PolyRAG` | **Use for legacy code.** Preserved for 100% backward compatibility. |
-| **`AgenticRAGService`**| `RAGService` | Legacy agentic entry point. |

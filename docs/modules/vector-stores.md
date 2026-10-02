@@ -2,153 +2,173 @@
 
 The `polyrag.vector_stores` module manages nearest-neighbor vector indexing, document persistence, and semantic similarity search.
 
----
-
-## 1. Available Vector Stores
-
-| Vector Store | Detailed Guide | Dependencies | Persistence | Best Used For |
-| :--- | :--- | :--- | :--- | :--- |
-| **`InMemoryVectorStore`** | [Guide](vector_stores/memory.md) | Zero dependencies | RAM only (ephemeral) | Unit tests, quick prototypes, air-gapped dev |
-| **`ChromaVectorStore`** | [Guide](vector_stores/chroma.md) | `chromadb>=0.4.0` | Disk / Local SQLite | Embedded local apps, desktop tools |
-| **`MilvusLiteVectorStore`** | [Guide](vector_stores/milvus.md) | `pymilvus>=2.4.0` | Local database file (`.db`) | Embedded zero-setup local apps, edge devices |
-| **`MilvusVectorStore`** | [Guide](vector_stores/milvus.md) | `pymilvus>=2.4.0` | Server, Cluster, or Cloud | Production scale, enterprise clusters, Zilliz Cloud |
+PolyRAG is built natively on LangChain's standard [`VectorStore`](https://python.langchain.com/docs/concepts/vectorstores/) interface. This means **any vector database in the LangChain ecosystem** can be plugged directly into PolyRAG pipelines with zero custom wrapper code.
 
 ---
 
-## 2. `InMemoryVectorStore`
+## 1. Architecture: Universal LangChain VectorStore Support
 
-Included in the core package with **zero dependencies**. Computes exact cosine similarity across all stored vectors.
+PolyRAG pipelines accept any class that implements the standard LangChain `VectorStore` contract:
+
+```
+                  ┌──────────────────────────────┐
+                  │    langchain.VectorStore     │
+                  │   (Universal Standard Port)  │
+                  └──────────────┬───────────────┘
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         ▼                       ▼                       ▼
+┌──────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+│InMemoryVectorStore│  │langchain_chroma.  │   │langchain_milvus.  │
+│(Zero-dependency) │   │     Chroma        │   │     Milvus        │
+└──────────────────┘   └───────────────────┘   └───────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌──────────────────┐   ┌───────────────────┐   ┌───────────────────┐
+│      FAISS       │   │     Pinecone      │   │    PGVector /     │
+│ (Local Flat/HNSW)│   │   (Cloud Server)  │   │     Qdrant        │
+└──────────────────┘   └───────────────────┘   └───────────────────┘
+```
+
+---
+
+## 2. Built-in: `InMemoryVectorStore`
+
+Included directly in `polyrag` with **zero external dependencies**. Perfect for fast unit testing, ephemeral scripts, offline notebooks, and zero-setup prototyping.
 
 ```python
 from polyrag.vector_stores import InMemoryVectorStore
 
+# In-memory vector store with cosine distance
 vdb = InMemoryVectorStore()
 
 # Standard BaseVectorStore operations
 vdb.add_documents(
-    vectors=[[0.1, 0.2], [0.8, 0.9]],
+    vectors=[[0.1, 0.2, 0.3], [0.8, 0.9, 0.7]],
     documents=[{"text": "Chunk 1", "source": "a.txt"}, {"text": "Chunk 2", "source": "b.txt"}],
 )
 
-results = vdb.search(query_vector=[0.1, 0.2], top_k=1)
+results = vdb.search(query_vector=[0.1, 0.2, 0.3], top_k=1)
 print(f"Top match: {results[0]['document']['text']}")
 print(f"Total count: {vdb.count()}")
 ```
 
 ---
 
-## 3. `ChromaVectorStore`
+## 3. Production Vector Stores via Official LangChain Packages
 
-Embeds a local persistent Chroma collection using HNSW indexing and cosine distance.
+### A. Chroma (`langchain-chroma`)
+Local persistent SQLite and HNSW vector storage:
 
-### Installation
 ```bash
-pip install "polyrag[chroma]"
+pip install langchain-chroma
 ```
 
-### Usage
 ```python
-from polyrag.vector_stores import ChromaVectorStore
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
+from polyrag import PolyRAG
 
-vdb = ChromaVectorStore(
-    persist_directory="chroma_storage",
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vector_store = Chroma(
     collection_name="knowledge_base",
+    embedding_function=embeddings,
+    persist_directory="./chroma_db",
 )
+
+rag = PolyRAG(vector_store=vector_store, embedding_model=embeddings)
 ```
 
 ---
 
-## 4. `MilvusLiteVectorStore` & `MilvusVectorStore`
+### B. Milvus & Milvus Lite (`langchain-milvus`)
+Scale from local file (`.db`) to planetary-scale distributed clusters:
 
-Provides production-grade vector storage powered by `pymilvus.MilvusClient`.
-
-### Installation
 ```bash
-pip install "polyrag[milvus]"
+pip install langchain-milvus
 ```
-
-### Modes of Operation
-
-#### Mode A: Embedded Milvus Lite (Zero Infrastructure)
-`MilvusLiteVectorStore` runs embedded in your Python process with a local database file, auto-creating directories if needed:
 
 ```python
-from polyrag.vector_stores import MilvusLiteVectorStore, MilvusLite, MilvusVectorStore
+from langchain_milvus import Milvus
+from langchain_openai import OpenAIEmbeddings
+from polyrag import PolyRAG
 
-# Direct instantiation
-vdb = MilvusLiteVectorStore(
-    db_path="./storage/milvus_demo.db",
-    collection_name="kb_docs",
-    metric_type="COSINE",  # 'COSINE', 'L2', or 'IP'
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Mode 1: Local embedded Milvus Lite (no Docker required)
+vector_store = Milvus(
+    embedding_function=embeddings,
+    connection_args={"uri": "./data/milvus_demo.db"},
+    collection_name="rfcs",
 )
 
-# Or via class alias
-vdb = MilvusLite(db_path="./storage/milvus_demo.db")
+# Mode 2: Distributed Milvus cluster or Zilliz Cloud
+# vector_store = Milvus(
+#     embedding_function=embeddings,
+#     connection_args={
+#         "uri": "https://in03-xxxxxxxx.api.gcp-us-west1.zillizcloud.com",
+#         "token": "YOUR_ZILLIZ_TOKEN",
+#     },
+#     collection_name="production_rfcs",
+# )
 
-# Or via factory method
-vdb = MilvusVectorStore.lite(db_path="./storage/milvus_demo.db")
+rag = PolyRAG(vector_store=vector_store, embedding_model=embeddings)
 ```
-
-#### Mode B: Milvus Standalone or Distributed Cluster
-```python
-from polyrag.vector_stores import MilvusVectorStore
-
-vdb = MilvusVectorStore(
-    uri="http://localhost:19530",
-    collection_name="production_kb",
-)
-```
-
-#### Mode C: Zilliz Cloud (Fully Managed)
-```python
-from polyrag.vector_stores import MilvusVectorStore
-
-vdb = MilvusVectorStore(
-    uri="https://in03-xxxxxxxx.api.gcp-us-west1.zillizcloud.com",
-    token="YOUR_ZILLIZ_API_KEY",
-    collection_name="production_kb",
-)
-```
-
-### Key Parameters
-* `uri`: Endpoint URI (`http://...`) or file path (`./milvus.db`).
-* `token`: API key or authentication token for cloud clusters.
-* `collection_name`: Target collection name (default: `"polyrag_docs"`).
-* `dimension`: Optional vector dimension. Automatically inferred on first `add_documents` if omitted.
-* `metric_type`: Distance metric: `"COSINE"` (default), `"L2"`, or `"IP"`.
-* `consistency_level`: Consistency model (`"Strong"`, `"Bounded"`, `"Session"`, `"Eventually"`).
 
 ---
 
-## 5. Unified `BaseVectorStore` Interface
-
-All vector stores in PolyRAG adhere to the exact same contract:
+### C. FAISS, Pinecone, Qdrant, PGVector
+Simply install the respective LangChain package and pass the instance:
 
 ```python
-# 1. Clear database
+# FAISS Example
+from langchain_community.vectorstores import FAISS
+
+faiss_store = FAISS.from_texts(
+    texts=["Sample text"],
+    embedding=embeddings,
+)
+
+rag = PolyRAG(vector_store=faiss_store, embedding_model=embeddings)
+```
+
+---
+
+## 4. Automatic Resolution via `resolve_vector_store`
+
+The `polyrag.vector_stores.resolve_vector_store` function handles string aliases and instances transparently:
+
+```python
+from polyrag.vector_stores import resolve_vector_store
+
+# 1. Resolves directly if already a VectorStore instance
+vdb = resolve_vector_store(existing_vdb)
+
+# 2. Resolves 'chroma' by dynamically loading langchain_chroma.Chroma
+vdb = resolve_vector_store("chroma", persist_directory="./chroma_db", embedding=embeddings)
+
+# 3. Resolves 'milvus' by dynamically loading langchain_milvus.Milvus
+vdb = resolve_vector_store("milvus", connection_args={"uri": "./milvus.db"}, embedding=embeddings)
+
+# 4. Defaults to InMemoryVectorStore when None
+vdb = resolve_vector_store(None)
+```
+
+---
+
+## 5. Unified Interface Contract
+
+All vector stores in PolyRAG conform to both LangChain standard methods and PolyRAG port methods:
+
+```python
+# PolyRAG Port Methods
+vdb.add_documents(vectors=vectors, documents=documents, batch_size=5000)
+results = vdb.search(query_vector=query_vector, top_k=5)
+count = vdb.count()
+sample = vdb.peek(limit=5)
 vdb.clear()
 
-# 2. Add pre-computed vectors and documents
-vdb.add_documents(vectors=vectors, documents=documents, batch_size=5000)
-
-# 3. Query nearest neighbors
-results = vdb.search(query_vector=query_vector, top_k=5)
-# Each result item:
-# {
-#     "score": 0.89,            # Cosine similarity or normalized score
-#     "distance": 0.11,         # Distance metric
-#     "document": {
-#         "_id": "doc_1#0_a1b2c3d4",
-#         "text": "Chunk content...",
-#         "source": "manual.pdf",
-#         "chunk_id": 0,
-#         ...
-#     }
-# }
-
-# 4. Count total items
-total = vdb.count()
-
-# 5. Sample records
-sample = vdb.peek(limit=5)
+# LangChain Standard Methods
+lc_docs = vdb.similarity_search("query text", k=5)
+docs_and_scores = vdb.similarity_search_with_score("query text", k=5)
 ```
