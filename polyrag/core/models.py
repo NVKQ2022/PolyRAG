@@ -87,6 +87,7 @@ class RAGResponse:
     reasoning_summary: str = ""
     agent_log: list[dict[str, Any]] = field(default_factory=list)
     llm_calls: int = 1
+    state: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -99,6 +100,7 @@ class RAGResponse:
             "reasoning_summary": self.reasoning_summary,
             "agent_log": self.agent_log,
             "llm_calls": self.llm_calls,
+            "state": self.state,
         }
 
     def __getitem__(self, item: str) -> Any:
@@ -152,6 +154,7 @@ class AgentResponse:
     total_steps: int = 0
     took_ms: int = 0
     llm_calls: int = 0
+    state: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -165,6 +168,7 @@ class AgentResponse:
             "total_steps": self.total_steps,
             "took_ms": self.took_ms,
             "llm_calls": self.llm_calls,
+            "state": self.state,
         }
 
     def __getitem__(self, item: str) -> Any:

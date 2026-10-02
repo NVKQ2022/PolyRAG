@@ -386,8 +386,11 @@ class PolyRAG:
         llm_client: BaseLLMClient | str | Any | None = None,
         chat_model: BaseLLMClient | str | Any | None = None,
         llm: BaseLLMClient | str | Any | None = None,
+        tools: list[Any] | None = None,
+        state_schema: type | dict | None = None,
+        system_prompt: str | None = None,
     ) -> AgenticRAG:
-        """Create an AgenticRAG pipeline with planning, rewriting, and fused reflection."""
+        """Create an AgenticRAG pipeline with tools, state schema, planning, and reflection."""
         target_emb = embedding if embedding is not None else embedding_model
         resolved_embedding = (
             resolve_embedding_model(target_emb)
@@ -408,6 +411,9 @@ class PolyRAG:
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
+            tools=tools,
+            state_schema=state_schema,
+            system_prompt=system_prompt,
         )
 
     def create_agentic_service(

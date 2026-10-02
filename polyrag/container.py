@@ -272,6 +272,9 @@ class Container:
         llm_client: BaseLLMClient | str | Any | None = None,
         chat_model: BaseLLMClient | str | Any | None = None,
         llm: BaseLLMClient | str | Any | None = None,
+        tools: list[Any] | None = None,
+        state_schema: type | dict | None = None,
+        system_prompt: str | None = None,
     ) -> AgenticRAG:
         """Construct AgenticRAG pipeline using injected dependencies."""
         resolved_chunker = (
@@ -299,6 +302,9 @@ class Container:
             top_k=top_k,
             max_rounds=max_rounds,
             verbose=verbose,
+            tools=tools,
+            state_schema=state_schema,
+            system_prompt=system_prompt,
         )
 
     def build_react_agent(

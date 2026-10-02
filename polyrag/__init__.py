@@ -44,7 +44,7 @@ from polyrag.llms import (
     resolve_llm_client,
 )
 from polyrag.pipelines.advanced import AdvancedRAG
-from polyrag.pipelines.agentic import AgenticRAG
+from polyrag.pipelines.agentic import AgentTool, AgenticRAG
 from polyrag.pipelines.base import BaseRAG
 from polyrag.pipelines.naive import NaiveRAG
 from polyrag.pipelines.react import ReActAgent, ReActRAG
@@ -59,7 +59,7 @@ from polyrag.vector_stores.chroma import ChromaVectorStore
 from polyrag.vector_stores.memory import InMemoryVectorStore
 from polyrag.vector_stores.milvus import MilvusVectorStore
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 __all__ = [
     # Application Context & Setup Factory
@@ -74,6 +74,7 @@ __all__ = [
     "NaiveRAG",
     "AdvancedRAG",
     "AgenticRAG",
+    "AgentTool",
     "ReActAgent",
     "ReActRAG",
     # Chunkers
