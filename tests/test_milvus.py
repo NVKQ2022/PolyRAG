@@ -20,10 +20,12 @@ def test_milvus_interface_compliance():
     assert isinstance(store, BaseVectorStore)
 
 
-def test_milvus_missing_dependency_raises():
+def test_milvus_missing_dependency_raises(monkeypatch):
     """Ensure meaningful ImportError is raised when pymilvus is absent."""
+    import sys
+
+    monkeypatch.setitem(sys.modules, "pymilvus", None)
     with pytest.raises(ImportError, match="pymilvus is required"):
-        # Without passing client, it will attempt `import pymilvus` which is not installed in test venv
         MilvusVectorStore(uri="http://localhost:19530")
 
 

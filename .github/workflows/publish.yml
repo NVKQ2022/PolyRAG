@@ -1,16 +1,26 @@
 name: Publish to PyPI 🚀
 
 on:
-  push:
-    tags:
-      - 'v*'
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Target repository (pypi or testpypi)"
+        required: true
+        type: choice
+        default: "pypi"
+        options:
+          - pypi
+          - testpypi
+      skip_tests:
+        description: "Skip running tests before publishing (use with caution)"
+        type: boolean
+        default: false
+        required: false
 
 jobs:
   test:
     name: Test across Python versions
+    if: ${{ !inputs.skip_tests }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,7 +46,8 @@ jobs:
 
   build:
     name: Build Distribution Packages
-    needs: test
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || inputs.skip_tests)
     runs-on: ubuntu-latest
 
     steps:
@@ -69,7 +80,7 @@ jobs:
           retention-days: 5
 
   publish:
-    name: Publish to Official PyPI
+    name: Publish to Package Index
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -82,8 +93,15 @@ jobs:
           name: polyrag-dist
           path: dist/
 
-      - name: Upload to PyPI
+      - name: Upload to Official PyPI
+        if: github.event.inputs.target == 'pypi' || !github.event.inputs.target
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          # Works with either PyPI Trusted Publishing (OIDC) or a Repository Secret
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Upload to TestPyPI
+        if: github.event.inputs.target == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN || secrets.PYPI_API_TOKEN }}
