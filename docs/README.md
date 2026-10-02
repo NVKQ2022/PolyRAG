@@ -23,7 +23,10 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 - [Agentic RAG Guide](guides/agentic-rag.md): Planning, semantic query rewriting, iterative multi-round retrieval, deduplication, and fused self-reflection.
 - [ReAct Agent Guide](guides/react-agent.md): Autonomous Thought-Action-Observation reasoning loop with dynamic tool execution.
 
-### 4. [Modules Documentation](modules/)
+### 4. [Deep Agents & Advanced Architecture](deep-agents/)
+- [Deep Agents in RAG](deep-agents/README.md): Comprehensive analysis of cost, complexity, failure modes, and the 8-step workflow for long-horizon research vs. standard RAG.
+
+### 5. [Modules Documentation](modules/)
 - [Modules Overview & Catalog](modules/README.md): Architecture overview and index of all PolyRAG packages.
 - [Core Module](modules/core.md): Domain models (`Document`, `Chunk`, `SearchResult`, `RAGResponse`), abstract ports, and exceptions.
 - [Chunkers Module](modules/chunkers.md): `FixedSizeChunker` and `RecursiveCharacterChunker` algorithms and configuration.
@@ -35,10 +38,10 @@ Welcome to the **PolyRAG** documentation. PolyRAG is a modular, multi-paradigm R
 - [App & Service Module](modules/app.md): Central `PolyRAG` application context and legacy `RAGService` compatibility layer.
 - [Adapters & Ecosystem Bridges](modules/adapters/README.md): [LangChain Document Loader Bridge](modules/adapters/langchain.md).
 
-### 5. [API Reference](api-reference/)
+### 6. [API Reference](api-reference/)
 - [Core Models & Interfaces](api-reference/core.md): Domain dataclasses (`Document`, `Chunk`, `SearchResult`, `RAGResponse`, `AgentResponse`), abstract interfaces, and exceptions.
 - [Pipelines Reference](api-reference/pipelines.md): Complete method signatures for `BaseRAG`, `NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, and `ReActAgent`.
 - [Services & DI Container](api-reference/service.md): Complete method signatures for `RAGService`, `AgenticRAGService`, and `Container`.
 
-### 6. [Roadmap](roadmap/)
+### 7. [Roadmap](roadmap/)
 - [GraphRAG & Hybrid Search](roadmap/graphrag.md): Architecture plans for knowledge graph extraction, community summarization, and Reciprocal Rank Fusion.
