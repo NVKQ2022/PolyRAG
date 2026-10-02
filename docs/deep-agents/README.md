@@ -219,53 +219,310 @@ flowchart TD
 
 ---
 
-## 6. Decision Matrix: When to Use What
+## 6. The RAG Complexity & Cost Spectrum: Detailed Contextual Guide
 
-Use this decision matrix to select the right RAG paradigm in PolyRAG:
+The RAG design space is not binary. It spans a continuous trade-off curve balancing **speed and cost** against **depth and autonomy**:
 
-| Requirement / Characteristic | Naive RAG | Advanced RAG | Agentic RAG | Deep Agent RAG |
-| :--- | :---: | :---: | :---: | :---: |
-| **Typical Query Type** | Direct factual lookup | Keyword / semantic mismatch | Multi-hop / ambiguous question | Exhaustive multi-doc research |
-| **Number of Sources Needed** | 1 – 3 chunks | 3 – 8 chunks | 5 – 15 chunks | 50 – 200+ chunks |
-| **Latency Budget** | < 1 second | 1 – 2 seconds | 2 – 5 seconds | 30 – 300 seconds |
-| **Token Budget per Query** | < 2,000 | < 5,000 | < 10,000 | 100,000 – 500,000+ |
-| **User Waiting Synchronously** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No (Async / Streaming) |
-| **Task Decomposition Needed** | ❌ No | ❌ No | ⚠️ Query rewrite only | ✅ Explicit DAG planning |
-| **Scratchpad / Filesystem** | ❌ None | ❌ None | ❌ None | ✅ Persistent workspace |
-| **Subagent Workers** | ❌ None | ❌ None | ❌ None | ✅ Multiple isolated subagents|
-| **Recommended in PolyRAG** | `rag.query()` | `rag.create_advanced_rag()` | `rag.create_agentic_rag()` | `rag.create_deep_research_rag()` |
+```
+Fast / Cheap                                                  Deep / Heavy
+─────────────────────────────────────────────────────────────────────────►
+[NaiveRAG]     ──►  [AdvancedRAG]  ──►  [AgenticRAG]  ──►  [DeepResearchRAG]
+Single-shot         Multi-query         Dynamic routing    Multi-subagent
+Vector search       Rank fusion         Multi-round        Workspace notes
+Latency: ~1s        Latency: ~2s        Latency: ~3-5s     Latency: 30s-5m
+Cost: $             Cost: $$            Cost: $$$          Cost: $$$$$
+Calls: 1            Calls: 2-3          Calls: 3-6         Calls: 20-100+
+Tokens: ~1.5k       Tokens: ~4k         Tokens: ~8k        Tokens: 100k-500k+
+Mode: Sync HTTP     Mode: Sync HTTP     Mode: Sync HTTP    Mode: Async/Queue
+```
 
 ---
 
-## 7. How PolyRAG Applies This Architecture Without Overcomplicating Core Pipelines
+### Tier 1: `NaiveRAG` — "The High-Speed Factual Retriever"
 
-PolyRAG avoids monolithic bloat by keeping core pipelines lightweight, fast, and dependency-free, while providing an optional path for deep research:
+#### 1. Core Philosophy & Architecture
+The foundational **Retrieve-then-Read** pipeline. A user query is embedded directly, top-$k$ nearest neighbor chunks are retrieved from the vector store via cosine/dot-product similarity, and concatenated into a prompt template alongside the user question for a single completion pass.
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        PolyRAG Modular Design                          │
-│                                                                        │
-│   Fast, Synchronous, Core Pipelines (Default)                          │
-│   ├── NaiveRAG        (Fastest, single-shot)                           │
-│   ├── AdvancedRAG     (Multi-query expansion + RRF rerank)             │
-│   ├── AgenticRAG      (Multi-round retrieval + reflection)             │
-│   └── ReActAgent      (Lightweight tool-calling loop)                  │
-│                                                                        │
-│   Heavy, Asynchronous, Deep Research (Optional Specialized Addon)       │
-│   └── DeepResearchRAG (Planning DAG + Workspace + Subagents)           │
-└────────────────────────────────────────────────────────────────────────┘
+User Query ──► [ Embed Query ] ──► [ Vector Store Top-K ] ──► [ Prompt + Chunks ] ──► [ LLM ] ──► Answer
 ```
 
-### The PolyRAG Implementation Principle
-1. **Zero Overhead for Standard Users**: Users importing `PolyRAG` or using `NaiveRAG`, `AdvancedRAG`, or `AgenticRAG` never pay the latency, token, or architectural tax of Deep Agents.
-2. **Pluggable Workspace**: When using `DeepResearchRAG`, developers can pass an in-memory workspace (`InMemoryWorkspace`) for quick scripts or a disk-backed workspace (`LocalFileSystemWorkspace`) for durable production runs.
-3. **Duck-Typed Subagents**: Reuses existing PolyRAG `BaseLLMClient` and `BaseVectorStore` interfaces for subagents without requiring external frameworks.
+#### 2. Key Metrics & Profile
+* **Latency**: **0.5s – 1.2s** (p50: 0.7s, p95: 1.5s).
+* **LLM Invocations**: Exactly **1 call**.
+* **Token Footprint**: ~1,000 – 1,800 tokens total (depends on chunk size & top-$k$).
+* **Cost Profile**:
+  * GPT-4o: ~$0.007 per query ($7.00 per 1,000 queries).
+  * GPT-4o-mini: ~$0.0003 per query ($0.30 per 1,000 queries).
+* **Execution Mode**: Synchronous HTTP request-response. High-throughput (50–200 req/sec with pooled vector DB).
+
+#### 3. Internal Mechanics
+* **Query Handling**: Raw string pass-through. No rewriting, expansion, or spell correction.
+* **Retrieval Strategy**: Single vector search (ANN index like HNSW or Flat).
+* **Context Handling**: Direct concatenation of retrieved chunks into the prompt.
+* **Reasoning**: Single forward generation pass. No reflection, iteration, or validation.
+
+#### 4. Ideal Use Cases
+* High-volume customer support FAQ lookups (*"What are your business hours?", "How do I initiate a return?"*).
+* Static software documentation search with explicit keyword alignment.
+* Real-time autocomplete or inline coding suggestion augmentations.
+
+#### 5. Failure Modes & Limitations
+* **Semantic Mismatch**: If the user's phrasing differs significantly from the document's vocabulary, retrieval fails completely.
+* **Single Point of Failure**: If the top-$k$ search returns irrelevant or incomplete chunks, the LLM hallucinates or admits ignorance.
+* **Context Clutter**: Cannot handle queries that require synthesizing facts scattered across 10+ pages.
+
+#### 6. PolyRAG Usage
+```python
+from polyrag import PolyRAG
+
+rag = PolyRAG()
+rag.ingest_text("PolyRAG is a modular, multi-paradigm RAG framework.")
+response = rag.query("What is PolyRAG?")
+print(response.answer)
+```
 
 ---
 
-## Summary Checklist for Architects
+### Tier 2: `AdvancedRAG` — "The Precision Multi-Query Synthesizer"
 
-* [ ] **Are your users asking simple questions?** ➡️ Use **[`NaiveRAG`](../guides/naive-rag.md)** or **[`AdvancedRAG`](../guides/advanced-rag.md)**.
-* [ ] **Do queries require multi-step reasoning or disambiguation?** ➡️ Use **[`AgenticRAG`](../guides/agentic-rag.md)**.
-* [ ] **Do you need tool invocation in a chat loop?** ➡️ Use **[`ReActAgent`](../guides/react-agent.md)**.
-* [ ] **Do you need comprehensive, 10-page synthesized reports across 100+ documents?** ➡️ Only then consider **Deep Agent RAG**.
+#### 1. Core Philosophy & Architecture
+Addresses the primary weakness of Naive RAG (poor query formulation and vocabulary mismatch) using **pre-retrieval query expansion** and **post-retrieval rank fusion**. The LLM first generates alternative search perspectives or hypothetical document embeddings (HyDE). All queries run in parallel, and results are merged using **Reciprocal Rank Fusion (RRF)** and relevance thresholds before synthesis.
+
+```
+User Query ──► [ LLM Query Expansion ] ──► [ Query 1, Query 2, Query 3 ]
+                                                    │
+                                                    ▼ (Parallel Searches)
+                                            [ Candidate Pools ]
+                                                    │
+                                                    ▼
+                                            [ RRF Re-ranking ]
+                                                    │
+                                                    ▼
+                                            [ Filtered Chunks ] ──► [ LLM Synthesis ] ──► Answer
+```
+
+#### 2. Key Metrics & Profile
+* **Latency**: **1.5s – 2.5s** (p50: 1.8s, p95: 3.0s).
+* **LLM Invocations**: **2 calls** (1 for query generation, 1 for final synthesis).
+* **Token Footprint**: ~3,000 – 5,000 tokens total.
+* **Cost Profile**:
+  * GPT-4o: ~$0.015 per query ($15.00 per 1,000 queries).
+  * GPT-4o-mini: ~$0.0008 per query ($0.80 per 1,000 queries).
+* **Execution Mode**: Synchronous HTTP. Suitable for user-facing search bars with slightly higher latency budgets.
+
+#### 3. Internal Mechanics
+* **Query Handling**: Generates $N$ distinct queries exploring synonyms, technical terms, and alternative facets.
+* **Retrieval Strategy**: Multi-query parallel retrieval. Merges candidate lists using RRF score: $RRF(d) = \sum \frac{1}{k + rank_i(d)}$.
+* **Context Handling**: Deduplicates overlapping chunks, ranks by fused score, and filters out chunks below `min_relevance_score`.
+* **Reasoning**: Two-stage reasoning (exploration + synthesis).
+
+#### 4. Ideal Use Cases
+* Technical documentation search where users ask vague or conversational questions (*"Why is my connection dropping on port 443?"*).
+* Knowledge bases with domain-specific terminology where users don't know the exact internal acronyms.
+* Enterprise search portals requiring higher recall without human intervention.
+
+#### 5. Failure Modes & Limitations
+* **Cannot do Multi-Hop Reasoning**: If answering query B requires first discovering an intermediate fact A from document 1, parallel query expansion fails because it expands before reading.
+* **Always Retrieves**: Even if the user asks a conversational question like *"Hello, how are you?"*, it will wastefully expand and search the vector database.
+
+#### 6. PolyRAG Usage
+```python
+from polyrag import PolyRAG
+
+rag = PolyRAG()
+advanced_pipeline = rag.create_advanced_rag(
+    num_expanded_queries=3,
+    top_k=5,
+    min_relevance_score=0.1,
+)
+response = advanced_pipeline.query("How to handle SSL handshake errors?")
+```
+
+---
+
+### Tier 3: `AgenticRAG` & `ReActAgent` — "The Dynamic Adaptive Reasoner"
+
+#### 1. Core Philosophy & Architecture
+Introduces an **autonomous control loop with decision-making capabilities**. Instead of blindly searching, the agent first **decides whether retrieval is even needed** (intent classification & routing). If needed, it rewrites the query, searches, inspects the retrieved evidence, and evaluates whether the information is sufficient. If insufficient, it initiates a **second round of retrieval** with refined queries before performing **fused self-reflection** and generating the grounded response.
+
+Alternatively, `ReActAgent` provides a formal **Thought-Action-Observation loop**, allowing dynamic tool calls (`search`, `list_docs`, `final_answer`) until the agent is confident.
+
+```
+User Query ──► [ Intent Router & Retrieval Planner ]
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+  [ No Retrieval Needed ]   [ Retrieval Needed ]
+         │                       │
+         ▼ (Direct Answer)       ▼
+       Answer              [ Round 1 Search ] ──► [ Evaluate Evidence ]
+                                                        │
+                                    ┌───────────────────┴───────────────────┐
+                                    ▼                                       ▼
+                             [ Sufficient ]                          [ Insufficient ]
+                                    │                                       │
+                                    ▼                                       ▼
+                       [ Fused Reflection & Synthesis ]              [ Round 2 Search (Refined) ]
+                                    │                                       │
+                                    ▼                                       └──────► [ Fused Synthesis ]
+                                  Answer
+```
+
+#### 2. Key Metrics & Profile
+* **Latency**: **2.5s – 5.5s** (p50: 3.5s, p95: 7.0s).
+* **LLM Invocations**: **2 to 5 calls** (Router + Round 1 Eval + Optional Round 2 + Final Synthesis).
+* **Token Footprint**: ~5,000 – 12,000 tokens total.
+* **Cost Profile**:
+  * GPT-4o: ~$0.035 per query ($35.00 per 1,000 queries).
+  * GPT-4o-mini: ~$0.002 per query ($2.00 per 1,000 queries).
+* **Execution Mode**: Synchronous HTTP or streaming response. Ideal for interactive Copilot interfaces.
+
+#### 3. Internal Mechanics
+* **Query Handling**: Semantic query rewriting based on technical intent analysis.
+* **Retrieval Strategy**: Multi-round adaptive retrieval with cumulative deduplication across rounds.
+* **Context Handling**: Filters and deduplicates chunks from multiple rounds; tracks provenance (`source#chunk_id`).
+* **Reasoning**: Cyclic loop with self-correction, gap detection, and grounded citation verification.
+
+#### 4. Ideal Use Cases
+* Interactive AI Copilots where users mix casual conversation (*"Thanks!", "Help me with..."*) with complex domain questions.
+* Multi-hop technical queries (*"Find the database timeout setting in config.yaml, then explain how that affects the retry policy in client.py"*).
+* Scenarios requiring high precision and citation transparency (legal, compliance, technical specifications).
+
+#### 5. Failure Modes & Limitations
+* **Step Limit Constraints**: Bound by a maximum step or round limit (e.g., `max_rounds=2` or `max_steps=5`). Cannot tackle open-ended research spanning 50+ documents.
+* **Context Clutter in Long Conversations**: In `ReActAgent`, each thought, tool call, and observation stays in the prompt history, degrading attention on complex chains.
+
+#### 6. PolyRAG Usage
+```python
+from polyrag import PolyRAG
+
+rag = PolyRAG()
+
+# Agentic RAG with multi-round retrieval and reflection
+agentic = rag.create_agentic_rag(max_rounds=2, top_k=3, verbose=True)
+response = agentic.query("What are the timeout settings and how do they impact failovers?")
+
+# Or ReAct Agent with dynamic tool invocation
+react = rag.create_react_agent(max_steps=4, verbose=True)
+response = react.query("Compare API rate limits across v1 and v2 specs.")
+```
+
+---
+
+### Tier 4: `DeepResearchRAG` — "The Autonomous Long-Horizon Investigator"
+
+#### 1. Core Philosophy & Architecture
+Designed for **exhaustive, open-ended research over massive document corpora**. Instead of a single LLM trying to hold everything in its context window, an **Orchestrator** decomposes the objective into an explicit **Task DAG (Directed Acyclic Graph)**. It spawns independent, scoped **Worker Subagents** to explore specific sub-topics in parallel.
+
+Raw chunks and intermediate findings are **offloaded to a persistent workspace filesystem / scratchpad**, preventing context window exhaustion. Once all tasks are satisfied, notes are condensed via **map-reduce**, verified by an **Auditor Subagent** for groundedness, and compiled into a long-form cited report.
+
+```
+                                  [ User Complex Research Objective ]
+                                                   │
+                                                   ▼
+                                       [ Lead Orchestrator ]
+                                       [ (Task Planning DAG) ]
+                                                   │
+                   ┌───────────────────────────────┼───────────────────────────────┐
+                   ▼                               ▼                               ▼
+          [ Subagent 1: Topic A ]         [ Subagent 2: Topic B ]         [ Subagent 3: Topic C ]
+          (Isolated Vector Search)        (Isolated Vector Search)        (Isolated Vector Search)
+                   │                               │                               │
+                   └───────────────────────────────┼───────────────────────────────┘
+                                                   ▼
+                                  [ Workspace Filesystem Scratchpad ]
+                                  • notes/topic_a.md
+                                  • notes/topic_b.md
+                                  • citations/evidence_registry.json
+                                                   │
+                                                   ▼
+                                  [ Map-Reduce Draft Synthesis ]
+                                                   │
+                                                   ▼
+                                  [ Critique & Grounding Auditor ]
+                                  (Checks every claim against chunks)
+                                                   │
+                                                   ▼
+                                  [ Final Exhaustive Research Report ]
+```
+
+#### 2. Key Metrics & Profile
+* **Latency**: **30 seconds to 5+ minutes** (p50: 90s, p95: 240s).
+* **LLM Invocations**: **20 to 100+ calls**.
+* **Token Footprint**: **100,000 to 500,000+ tokens** total across orchestrator, subagents, and auditor.
+* **Cost Profile**:
+  * GPT-4o: ~$0.50 – $2.50+ per query ($500 – $2,500 per 1,000 queries).
+  * GPT-4o-mini: ~$0.03 – $0.15 per query ($30 – $150 per 1,000 queries).
+* **Execution Mode**: **Asynchronous background task** with WebSocket status streaming, job checkpoints, and durable persistence.
+
+#### 3. Internal Mechanics
+* **Query Handling**: High-level goal decomposition into prioritized task dependencies.
+* **Retrieval Strategy**: Multi-subagent parallel retrieval; may inspect 50–200 chunks across multiple iterations.
+* **Context Handling**: Filesystem-backed state isolation. LLM context stays below 8k tokens while workspace holds hundreds of thousands of words.
+* **Reasoning**: Hierarchical multi-actor state machine with dynamic replanning, gap analysis, and auditor verification.
+
+#### 4. Ideal Use Cases
+* Comprehensive competitive intelligence or market analysis across hundreds of uploaded PDFs.
+* Multi-document regulatory compliance audits (e.g., verifying 50 internal policy files against ISO-27001).
+* Generating 10-to-20 page executive briefing dossiers with verified citations.
+
+#### 5. Failure Modes & Limitations
+* **Extreme Latency & Cost**: Completely unusable for interactive user-facing chatbots.
+* **Over-Exploration / Stalls**: Can get trapped in recursive subtask creation if the knowledge base lacks necessary data.
+* **Infrastructure Complexity**: Requires background workers (Celery/Temporal), durable databases (Redis/Postgres), and robust rate-limit management.
+
+#### 6. PolyRAG Usage (Conceptual Roadmap)
+```python
+from polyrag import PolyRAG
+
+rag = PolyRAG()
+
+# Optional specialized deep research pipeline
+deep_research = rag.create_deep_research_rag(
+    max_subagents=4,
+    max_planning_depth=3,
+    workspace_dir="./workspace_scratchpad",
+    verbose=True,
+)
+
+# Returns a task ID or runs asynchronously
+report = deep_research.research(
+    "Perform a comprehensive comparative analysis of OAuth2 vs SAML2 security architectures in our indexed RFCs."
+)
+print(report.markdown_report)
+print(report.task_dag_history)
+```
+
+---
+
+## 7. Deep Comparative Matrix Across All 4 Tiers
+
+| Dimension | `NaiveRAG` | `AdvancedRAG` | `AgenticRAG` | `DeepResearchRAG` |
+| :--- | :--- | :--- | :--- | :--- |
+| **Primary Goal** | Fast factual answer | High recall & precision | Multi-hop reasoning & routing | Exhaustive multi-doc synthesis |
+| **P95 Latency** | **1.5 seconds** | **3.0 seconds** | **7.0 seconds** | **4 – 5 minutes** |
+| **Cost per 1k (GPT-4o)**| **$7.00** | **$15.00** | **$35.00** | **$500 – $2,500** |
+| **Cost per 1k (4o-mini)**| **$0.30** | **$0.80** | **$2.00** | **$30 – $150** |
+| **LLM Calls** | 1 | 2 | 2 – 5 | 20 – 100+ |
+| **Token Budget** | < 2,000 | ~4,000 | ~8,000 | 100,000 – 500,000+ |
+| **Retrieval Strategy** | Single-shot vector top-$k$ | Multi-query expansion + RRF | Multi-round adaptive retrieval | Hierarchical subagent searches |
+| **Chunks Inspected** | 1 – 5 chunks | 5 – 15 chunks | 5 – 25 chunks | 50 – 200+ chunks |
+| **Context Window Pressure**| Negligible | Low | Moderate | High (mitigated by filesystem) |
+| **Execution Architecture** | Stateless function | Stateless pipeline | Stateful single loop | Stateful multi-agent graph |
+| **Transport Model** | Sync HTTP Request | Sync HTTP Request | Sync HTTP / Streaming | Async Job Queue + WebSocket |
+| **Error Recovery** | None (fails silently) | None | Self-correction / Round 2 | Replanning, gap analysis, auditor |
+| **Best Fit** | FAQs, doc search bars | Technical search with jargon | Copilots, multi-hop Q&A | Multi-document audit dossiers |
+| **Worst Fit** | Multi-hop or complex queries | Real-time < 500ms SLA | High-throughput batch APIs | Synchronous user chat interfaces |
+
+---
+
+## 8. Summary & Architect's Rule of Thumb
+
+> [!TIP]
+> **The 10-Second Selection Rule**:
+> 1. If the user is waiting on a screen and needs an answer in 1 second ➡️ **`NaiveRAG`**.
+> 2. If search keywords often miss internal document phrasing ➡️ **`AdvancedRAG`**.
+> 3. If the user asks multi-hop questions, mixes chit-chat, or needs self-correction ➡️ **`AgenticRAG`**.
+> 4. If the user asks you to *"investigate, read dozens of files, and write an exhaustive report"* ➡️ **`DeepResearchRAG`**.
+
