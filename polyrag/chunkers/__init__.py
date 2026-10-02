@@ -1,6 +1,8 @@
-"""Chunkers Package for polyrag."""
+"""Chunkers Package for polyrag built on langchain_text_splitters."""
 
 from typing import Any
+
+from langchain_text_splitters import TextSplitter
 
 from polyrag.chunkers.fixed_size import FixedSizeChunker
 from polyrag.chunkers.recursive import RecursiveCharacterChunker
@@ -8,23 +10,23 @@ from polyrag.core.interfaces import BaseChunker
 
 
 def resolve_chunker(
-    chunker: BaseChunker | str | None = None,
+    chunker: BaseChunker | TextSplitter | str | None = None,
     chunk_size: int = 550,
     chunk_overlap: int = 35,
     **kwargs: Any,
-) -> BaseChunker:
+) -> BaseChunker | TextSplitter:
     """
     Resolve or construct a chunking strategy from an instance or string identifier.
 
     Args:
-        chunker: An existing BaseChunker instance or string name ('recursive', 'fixed_size').
+        chunker: An existing TextSplitter/BaseChunker instance or string name ('recursive', 'fixed_size').
             If None, defaults to RecursiveCharacterChunker.
         chunk_size: Chunk size in characters if instantiating from string or default.
         chunk_overlap: Overlap in characters between adjacent chunks.
         **kwargs: Extra parameters forwarded to the chunker constructor.
 
     Returns:
-        Concrete BaseChunker instance.
+        Concrete TextSplitter / BaseChunker instance.
     """
     if chunker is None:
         return RecursiveCharacterChunker(
@@ -32,7 +34,7 @@ def resolve_chunker(
             chunk_overlap=chunk_overlap,
             **kwargs,
         )
-    if isinstance(chunker, BaseChunker):
+    if isinstance(chunker, (BaseChunker, TextSplitter)):
         return chunker
     if isinstance(chunker, str):
         normalized = chunker.lower().strip().replace("-", "_")

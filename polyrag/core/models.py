@@ -1,17 +1,102 @@
-"""Data Models and Entities for polyrag."""
+"""Data Models and Entities for polyrag built on LangChain primitives."""
 
 from dataclasses import dataclass, field
 from typing import Any
 
+from langchain_core.documents import Document as LCDocument
+from langchain_core.messages import (
+    AIMessage as LCAIMessage,
+    BaseMessage as LCBaseMessage,
+    HumanMessage as LCHumanMessage,
+    SystemMessage as LCSystemMessage,
+    ToolMessage as LCToolMessage,
+)
 
-@dataclass
-class Document:
-    """Represents an input source document."""
 
-    source: str
-    text: str
-    metadata: dict[str, Any] = field(default_factory=dict)
-    doc_id: str | None = None
+class Document(LCDocument):
+    """
+    LangChain Document entity with PolyRAG backward compatibility.
+
+    Supports both LangChain standard fields (`page_content`, `metadata`, `id`)
+    and legacy PolyRAG attributes (`text`, `source`, `doc_id`).
+    """
+
+    def __init__(
+        self,
+        page_content: str = "",
+        metadata: dict[str, Any] | None = None,
+        text: str | None = None,
+        source: str | None = None,
+        doc_id: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        content = text if text is not None else page_content
+        meta = dict(metadata or {})
+        if source is not None and "source" not in meta:
+            meta["source"] = source
+        if doc_id is not None and "_id" not in meta:
+            meta["_id"] = doc_id
+        super().__init__(page_content=content, metadata=meta, **kwargs)
+
+    @property
+    def text(self) -> str:
+        """Alias for page_content."""
+        return self.page_content
+
+    @property
+    def source(self) -> str:
+        """Source identifier from metadata."""
+        return str(self.metadata.get("source", "document"))
+
+    @property
+    def doc_id(self) -> str | None:
+        """Document ID from metadata or LangChain id."""
+        return self.metadata.get("_id") or getattr(self, "id", None)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert document into dictionary format."""
+        return {
+            "page_content": self.page_content,
+            "text": self.page_content,
+            "source": self.source,
+            "metadata": self.metadata,
+            "id": self.id,
+        }
+
+
+class BaseMessage(LCBaseMessage):
+    """Base chat message returning content string on str()."""
+
+    def __str__(self) -> str:
+        return str(self.content)
+
+
+class HumanMessage(LCHumanMessage):
+    """Human/User message returning content string on str()."""
+
+    def __str__(self) -> str:
+        return str(self.content)
+
+
+class AIMessage(LCAIMessage):
+    """AI/Assistant message returning content string on str()."""
+
+    def __str__(self) -> str:
+        return str(self.content)
+
+
+class SystemMessage(LCSystemMessage):
+    """System message returning content string on str()."""
+
+    def __str__(self) -> str:
+        return str(self.content)
+
+
+class ToolMessage(LCToolMessage):
+    """Tool message returning content string on str()."""
+
+    def __str__(self) -> str:
+        return str(self.content)
 
 
 @dataclass
@@ -29,12 +114,18 @@ class Chunk:
         """Return canonical chunk identifier, e.g. 'rfc1035.txt#42'."""
         return f"{self.source}#{self.chunk_id}"
 
+    @property
+    def page_content(self) -> str:
+        """LangChain compatibility alias for text."""
+        return self.text
+
     def to_dict(self) -> dict[str, Any]:
         """Convert chunk into a dictionary format."""
         data = {
             "source": self.source,
             "chunk_id": self.chunk_id,
             "text": self.text,
+            "page_content": self.text,
             **self.metadata,
         }
         if self.chunk_uuid:
@@ -48,29 +139,40 @@ class SearchResult:
 
     score: float
     distance: float
-    document: dict[str, Any] = field(default_factory=dict)
+    document: dict[str, Any] | Document = field(default_factory=dict)
 
     @property
     def source(self) -> str:
+        if isinstance(self.document, Document):
+            return self.document.source
         return self.document.get("source", "unknown")
 
     @property
     def chunk_id(self) -> Any:
+        if isinstance(self.document, Document):
+            return self.document.metadata.get("chunk_id", "")
         return self.document.get("chunk_id", "")
 
     @property
     def text(self) -> str:
-        return self.document.get("text", "")
+        if isinstance(self.document, Document):
+            return self.document.page_content
+        return self.document.get("text", self.document.get("page_content", ""))
+
+    @property
+    def page_content(self) -> str:
+        return self.text
 
     @property
     def identifier(self) -> str:
         return f"{self.source}#{self.chunk_id}"
 
     def to_dict(self) -> dict[str, Any]:
+        doc_dict = self.document.to_dict() if isinstance(self.document, Document) else self.document
         return {
             "score": self.score,
             "distance": self.distance,
-            "document": self.document,
+            "document": doc_dict,
         }
 
 
@@ -175,45 +277,17 @@ class AgentResponse:
         return getattr(self, item)
 
 
-@dataclass
-class BaseMessage:
-    """Base class for chat messages conforming to modern LangChain message schemas."""
-
-    content: str
-    additional_kwargs: dict[str, Any] = field(default_factory=dict)
-    response_metadata: dict[str, Any] = field(default_factory=dict)
-    type: str = "base"
-
-    def __str__(self) -> str:
-        return self.content
-
-
-@dataclass
-class HumanMessage(BaseMessage):
-    """Message representing user / human input."""
-
-    type: str = "human"
-
-
-@dataclass
-class AIMessage(BaseMessage):
-    """Message representing assistant / AI response with optional tool calls."""
-
-    type: str = "ai"
-    tool_calls: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass
-class SystemMessage(BaseMessage):
-    """Message representing system / context instructions."""
-
-    type: str = "system"
-
-
-@dataclass
-class ToolMessage(BaseMessage):
-    """Message representing output of a tool execution."""
-
-    type: str = "tool"
-    tool_call_id: str = ""
-
+__all__ = [
+    "Document",
+    "Chunk",
+    "SearchResult",
+    "RAGResponse",
+    "AgentAction",
+    "AgentStep",
+    "AgentResponse",
+    "BaseMessage",
+    "HumanMessage",
+    "AIMessage",
+    "SystemMessage",
+    "ToolMessage",
+]

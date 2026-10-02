@@ -18,6 +18,37 @@ from polyrag.exceptions import RetrievalError
 from polyrag.pipelines.base import BaseRAG
 
 
+def _generate_text(llm: Any, prompt: str, **kwargs: Any) -> str:
+    """Generate completion text from any LangChain ChatModel, LLM, or callable."""
+    if hasattr(llm, "invoke"):
+        res = llm.invoke(prompt, **kwargs)
+        if hasattr(res, "content"):
+            return str(res.content).strip()
+        return str(res).strip()
+    if hasattr(llm, "complete"):
+        return str(llm.complete(prompt, **kwargs)).strip()
+    if callable(llm):
+        return str(llm(prompt)).strip()
+    return str(llm).strip()
+
+
+def _complete_json(llm: Any, prompt: str, **kwargs: Any) -> dict[str, Any]:
+    """Generate and parse JSON output from model."""
+    if hasattr(llm, "complete_json"):
+        return llm.complete_json(prompt, **kwargs)
+    raw_text = _generate_text(llm, prompt, **kwargs)
+    match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
+    candidate = match.group(1) if match else raw_text
+    first_brace = candidate.find("{")
+    last_brace = candidate.rfind("}")
+    if first_brace != -1 and last_brace != -1:
+        candidate = candidate[first_brace : last_brace + 1]
+    try:
+        return json.loads(candidate)
+    except Exception:
+        return {}
+
+
 class AgentTool:
     """Unified wrapper around LangChain tools, functions, or callables."""
 
@@ -219,6 +250,14 @@ class AgenticRAG(BaseRAG):
 
     def list_sources(self) -> list[str]:
         """List distinct document sources currently indexed in the vector store."""
+        if hasattr(self.vector_store, "store"):
+            sources = set()
+            for entry in self.vector_store.store.values():
+                meta = entry.get("metadata", {})
+                if "source" in meta:
+                    sources.add(str(meta["source"]))
+            if sources:
+                return sorted(list(sources))
         if hasattr(self.vector_store, "get_all_documents"):
             docs = self.vector_store.get_all_documents()
             return sorted(list({d.get("source", "unknown") for d in docs if isinstance(d, dict)}))
@@ -265,7 +304,7 @@ Rules:
 - retrieval_needed = true for specific domain, protocol, architecture, or technical questions.
 - query should rewrite and expand technical keywords for optimal vector search.
 """
-        result = self.llm_client.complete_json(prompt)
+        result = _complete_json(self.llm_client, prompt)
         return {
             "retrieval_needed": result.get("retrieval_needed", True),
             "query": (result.get("query") or question).strip(),
@@ -275,13 +314,12 @@ Rules:
     def direct_answer(self, question: str) -> str:
         """Answer conversational or out-of-domain questions directly without retrieval."""
         prompt = f"Answer the following user query politely and concisely:\n{question}"
-        return self.llm_client.complete(prompt)
+        return _generate_text(self.llm_client, prompt)
 
     def retrieve(self, query: str, top_k: int | None = None) -> list[dict[str, Any]]:
         """Retrieve top-k chunks from the vector store."""
         k = top_k or self.top_k
-        query_vector = self.embedding_model.embed_text(query)
-        return self.vector_store.search(query_vector=query_vector, top_k=k)
+        return super().retrieve(query, top_k=k)
 
     def format_context(self, search_results: list[dict[str, Any]]) -> str:
         """Format accumulated search results into a clean context string."""
@@ -290,7 +328,7 @@ Rules:
             document = result.get("document", {})
             source = document.get("source", "unknown")
             chunk_id = document.get("chunk_id", "")
-            text = document.get("text", "")
+            text = document.get("text", document.get("page_content", ""))
             blocks.append(f"Source: {source}#{chunk_id}\n{text}")
         return "\n\n---\n\n".join(blocks)
 
@@ -339,7 +377,7 @@ Rules:
 - Answer MUST use citations in the format [source#chunk_id].
 - Never hallucinate facts outside the provided context.
 """
-        result = self.llm_client.complete_json(prompt)
+        result = _complete_json(self.llm_client, prompt)
 
         return {
             "enough": result.get("enough", is_last_round),
@@ -394,7 +432,7 @@ Provide your next Thought and Tool in strictly valid JSON format:
 }}
 """
             t0 = time.time()
-            decision = self.llm_client.complete_json(prompt)
+            decision = _complete_json(self.llm_client, prompt)
             thought = str(decision.get("thought", "Analyzing question..."))
             tool_name = str(decision.get("tool", "retrieve_documents"))
             args = dict(decision.get("args", {}))

@@ -15,6 +15,20 @@ from polyrag.core.models import AgentAction, AgentResponse, AgentStep
 from polyrag.pipelines.base import BaseRAG
 
 
+def _generate_text(llm: Any, prompt: str, **kwargs: Any) -> str:
+    """Generate completion text from any LangChain ChatModel, LLM, or callable."""
+    if hasattr(llm, "invoke"):
+        res = llm.invoke(prompt, **kwargs)
+        if hasattr(res, "content"):
+            return str(res.content).strip()
+        return str(res).strip()
+    if hasattr(llm, "complete"):
+        return str(llm.complete(prompt, **kwargs)).strip()
+    if callable(llm):
+        return str(llm(prompt)).strip()
+    return str(llm).strip()
+
+
 class ReActAgent(BaseRAG):
     """
     ReAct Agent implementing a structured Thought-Action-Observation loop
@@ -98,9 +112,8 @@ Rules:
             )
 
     def _execute_search(self, query: str, top_k: int) -> list[dict[str, Any]]:
-        """Search vector store and return results."""
-        query_vec = self.embedding_model.embed_text(query)
-        return self.vector_store.search(query_vector=query_vec, top_k=top_k)
+        """Search vector store and return results using BaseRAG.retrieve."""
+        return self.retrieve(query, top_k=top_k)
 
     def execute(
         self,
@@ -132,7 +145,7 @@ Rules:
             )
 
             t0 = time.time()
-            llm_output = self.llm_client.complete(prompt)
+            llm_output = _generate_text(self.llm_client, prompt)
             action = self._parse_action(llm_output, question)
 
             if action.action == "final_answer":

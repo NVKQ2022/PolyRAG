@@ -7,10 +7,14 @@ from polyrag.chunkers.fixed_size import FixedSizeChunker
 from polyrag.chunkers.recursive import RecursiveCharacterChunker
 from polyrag.container import Container
 from polyrag.core.interfaces import (
+    BaseChatModel,
     BaseChunker,
     BaseEmbeddingModel,
     BaseLLMClient,
     BaseVectorStore,
+    Embeddings,
+    TextSplitter,
+    VectorStore,
 )
 from polyrag.core.models import (
     AgentAction,
@@ -55,12 +59,13 @@ from polyrag.adapters.langchain import (
 )
 from polyrag.app import PolyRAG
 from polyrag.service import AgenticRAGService, RAGService
-from polyrag.vector_stores.chroma import ChromaVectorStore
-from polyrag.vector_stores.memory import InMemoryVectorStore
-from polyrag.vector_stores.milvus import (
+from polyrag.vector_stores import (
+    ChromaVectorStore,
+    InMemoryVectorStore,
     MilvusLite,
     MilvusLiteVectorStore,
     MilvusVectorStore,
+    resolve_vector_store,
 )
 
 __version__ = "0.1.5"
@@ -81,6 +86,11 @@ __all__ = [
     "AgentTool",
     "ReActAgent",
     "ReActRAG",
+    # LangChain Standard Primitives
+    "VectorStore",
+    "Embeddings",
+    "BaseChatModel",
+    "TextSplitter",
     # Chunkers
     "BaseChunker",
     "FixedSizeChunker",
@@ -98,6 +108,7 @@ __all__ = [
     "MilvusVectorStore",
     "MilvusLiteVectorStore",
     "MilvusLite",
+    "resolve_vector_store",
     # Adapters & Bridges
     "LangChainDocumentConverter",
     "LangChainEmbeddingAdapter",

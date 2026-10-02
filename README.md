@@ -45,15 +45,21 @@ All derived pipelines inherit shared document ingestion (`ingest_text`, `ingest_
   - `ReActAgent`: Structured Thought-Action-Observation reasoning loop with dynamic tool execution.
   - *Coming Soon*: `GraphRAG` (knowledge graph entity extraction, community detection, and summarization).
 
+- **Native LangChain Foundation**:
+  - Built directly on top of `langchain-core` and `langchain-text-splitters` primitives.
+  - Zero-wrapper pluggability: pass ANY LangChain `VectorStore` (Chroma, Milvus, Pinecone, FAISS, PGVector), `Embeddings` (OpenAI, HuggingFace, Ollama, Cohere), `BaseChatModel` (`ChatOpenAI`, `ChatAnthropic`, `ChatGoogleGenerativeAI`, `ChatOllama`), or `TextSplitter` directly into PolyRAG pipelines.
+  - Full bidirectional compatibility: PolyRAG components can be used anywhere a LangChain runnable or component is expected.
+
 - **Dependency Injection**:
   - Built-in `Container` acting as the Composition Root for all services, adapters, and pipelines.
+  - Seamless DI resolution and alias mapping for both PolyRAG and LangChain types (`VectorStore`, `Embeddings`, `BaseChatModel`, `TextSplitter`).
   - Full support for Singleton and Transient scopes, lifecycle management, and 1-line test mocking.
 
-- **Clean & Swappable Adapters**:
-  - **Chunkers**: `FixedSizeChunker`, `RecursiveCharacterChunker` (boundary-aware).
-  - **Embeddings**: `OpenAIEmbedding`, `SentenceTransformerEmbedding` (PyTorch).
-  - **Vector Stores**: `ChromaVectorStore` (persistent / remote), `InMemoryVectorStore` (zero-dependency cosine similarity).
-  - **LLMs**: `OpenAILLM` (supporting OpenAI chat completions and Azure OpenAI `responses.create`).
+- **Clean & Swappable Components**:
+  - **Vector Stores**: `InMemoryVectorStore` (zero-dependency cosine/L2/dot similarity), `MilvusVectorStore`, `MilvusLiteVectorStore`, `ChromaVectorStore`.
+  - **Chunkers**: `FixedSizeChunker`, `RecursiveCharacterChunker` (subclassing LangChain's `TextSplitter`).
+  - **Embeddings**: `SentenceTransformerEmbedding`, `OpenAIEmbedding` (subclassing LangChain's `Embeddings`).
+  - **Chat Models**: `ChatOpenAI`, `OpenAIChatModel`, `OpenAILLM` (supporting OpenAI, Azure, and vLLM).
 
 ---
 

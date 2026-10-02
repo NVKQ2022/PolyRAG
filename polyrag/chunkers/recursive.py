@@ -1,5 +1,6 @@
 """Recursive character chunker that splits hierarchically along natural text boundaries."""
 
+from typing import Any
 from polyrag.core.interfaces import BaseChunker
 
 
@@ -12,12 +13,14 @@ class RecursiveCharacterChunker(BaseChunker):
         chunk_overlap: int = 35,
         separators: list[str] | None = None,
         drop_empty: bool = True,
+        **kwargs: Any,
     ) -> None:
         if chunk_size <= 0:
             raise ValueError("chunk_size must be greater than 0")
         if chunk_overlap < 0 or chunk_overlap >= chunk_size:
             raise ValueError("chunk_overlap must be >= 0 and < chunk_size")
 
+        super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap, **kwargs)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.separators = separators or ["\n\n", "\n", ". ", " ", ""]
@@ -27,6 +30,9 @@ class RecursiveCharacterChunker(BaseChunker):
         if self.drop_empty and not text.strip():
             return []
         return self._split_text(text, self.separators)
+
+    def split_text(self, text: str) -> list[str]:
+        return self.chunk(text)
 
     def _split_text(self, text: str, separators: list[str]) -> list[str]:
         final_chunks: list[str] = []
@@ -87,3 +93,6 @@ class RecursiveCharacterChunker(BaseChunker):
                 final_chunks.append(joined)
 
         return final_chunks
+
+
+__all__ = ["RecursiveCharacterChunker"]

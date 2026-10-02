@@ -62,12 +62,12 @@ class PolyRAG:
             self.container = container
             self.chunker = container.resolve(BaseChunker) if container.is_registered(BaseChunker) else resolve_chunker(chunker)
             self.embedding_model = container.resolve(BaseEmbeddingModel) if container.is_registered(BaseEmbeddingModel) else resolve_embedding_model(target_emb)
-            self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (vector_store or InMemoryVectorStore())
+            self.vector_store = container.resolve(BaseVectorStore) if container.is_registered(BaseVectorStore) else (vector_store or InMemoryVectorStore(embedding=self.embedding_model))
             self.llm_client = container.resolve(BaseLLMClient) if container.is_registered(BaseLLMClient) else resolve_llm_client(target_llm)
         else:
             self.chunker = resolve_chunker(chunker)
             self.embedding_model = resolve_embedding_model(target_emb)
-            self.vector_store = vector_store or InMemoryVectorStore()
+            self.vector_store = vector_store or InMemoryVectorStore(embedding=self.embedding_model)
             self.llm_client = resolve_llm_client(target_llm)
             self.container = Container.create(
                 chunker=self.chunker,
@@ -139,7 +139,7 @@ class PolyRAG:
         elif persist_dir:
             vdb = ChromaVectorStore(persist_directory=str(persist_dir), collection_name=collection_name)
         else:
-            vdb = InMemoryVectorStore()
+            vdb = InMemoryVectorStore(embedding=emb)
 
         return cls(
             chunker=resolve_chunker(chunker),

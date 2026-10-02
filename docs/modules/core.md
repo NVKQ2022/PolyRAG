@@ -2,12 +2,14 @@
 
 The `polyrag.core` module defines the domain entities, shared data transfer objects (DTOs), abstract ports (interfaces), and exception hierarchy across PolyRAG.
 
+Starting in PolyRAG 0.1.5+, PolyRAG foundational primitives inherit directly from standard **LangChain** base classes, enabling zero-wrapper interoperability with the entire LangChain ecosystem while retaining PolyRAG's clean, high-performance interfaces.
+
 ---
 
 ## 1. Domain Entities (`polyrag.core.models`)
 
 ### `Document`
-Represents an unsegmented source document before chunking.
+Inherits directly from `langchain_core.documents.Document` while exposing PolyRAG's ergonomic `.text`, `.source`, and `.doc_id` properties.
 
 ```python
 from polyrag.core.models import Document
@@ -18,14 +20,23 @@ doc = Document(
     metadata={"author": "DevOps Team", "category": "Auth"},
     doc_id="doc_custom_123",  # Optional custom ID
 )
+
+# Standard LangChain properties
+print(doc.page_content)  # "# Title\n\nFull raw content..."
+print(doc.id)            # "doc_custom_123"
+
+# PolyRAG properties
+print(doc.text)          # "# Title\n\nFull raw content..."
+print(doc.source)        # "articles/kb_001.md"
+print(doc.doc_id)        # "doc_custom_123"
 ```
 
-| Field | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `source` | `str` | *Required* | File path, URI, or identifier of document origin. |
-| `text` | `str` | *Required* | Full raw text content. |
-| `metadata` | `dict[str, Any]` | `{}` | Key-value attributes (author, date, tags). |
-| `doc_id` | `str \| None` | `None` | Optional unique identifier. |
+| Field / Property | Type | Description |
+| :--- | :--- | :--- |
+| `page_content` / `text` | `str` | Full raw text content. |
+| `metadata` | `dict[str, Any]` | Key-value attributes (author, date, tags, source). |
+| `id` / `doc_id` | `str \| None` | Unique document identifier. |
+| `source` | `str` | Document source path or origin URI. |
 
 ---
 
@@ -46,156 +57,119 @@ chunk = Chunk(
 print(chunk.identifier)
 ```
 
-| Property / Field | Type | Description |
-| :--- | :--- | :--- |
-| `source` | `str` | Document source from which the chunk originated. |
-| `chunk_id` | `int \| str` | Zero-indexed or sequential section counter. |
-| `text` | `str` | Text content of the chunk. |
-| `metadata` | `dict[str, Any]` | Chunk-specific metadata. |
-| `identifier` | `str` *(property)* | Canonical identifier formatted as `{source}#{chunk_id}`. |
-| `to_dict()` | `dict[str, Any]` | Converts chunk to a flat dictionary for vector database storage. |
+---
+
+### Message Primitives
+PolyRAG provides LangChain-compatible message models:
+- `HumanMessage` (subclasses `langchain_core.messages.HumanMessage`)
+- `AIMessage` (subclasses `langchain_core.messages.AIMessage`, supports `tool_calls`)
+- `SystemMessage` (subclasses `langchain_core.messages.SystemMessage`)
+- `ToolMessage` (subclasses `langchain_core.messages.ToolMessage`)
 
 ---
 
-### `SearchResult`
-Represents a nearest-neighbor vector match returned by a vector store.
+## 2. Abstract Ports & LangChain Bridges (`polyrag.core.interfaces`)
 
-```python
-@dataclass
-class SearchResult:
-    score: float           # Similarity score (e.g. Cosine Similarity [-1, 1])
-    distance: float        # Distance metric (e.g. L2 or 1 - Cosine)
-    document: dict[str, Any] # Contains _id, text, source, and metadata
+PolyRAG uses the **Dual Compatibility Bridge Pattern**: each PolyRAG interface subclasses its corresponding LangChain primitive and bidirectionally implements both method signatures.
+
 ```
-
----
-
-### `RAGResponse`
-Standard output model returned by all RAG pipelines (`NaiveRAG`, `AdvancedRAG`, `AgenticRAG`, `PolyRAG.query()`).
-
-```python
-@dataclass
-class RAGResponse:
-    question: str
-    answer: str
-    context: str = ""
-    sources: list[dict[str, Any]] = field(default_factory=list)
-    took_ms: int = 0
-    confidence: float = 1.0
-    reasoning_summary: str = ""
-    agent_log: list[dict[str, Any]] = field(default_factory=list)
-    llm_calls: int = 1
-```
-
----
-
-### `AgentResponse` & `AgentStep`
-Output produced by the autonomous [`ReActAgent`](file:///home/quan/projects/pythonPackage/PolyRAG/polyrag/pipelines/react.py):
-
-* **`AgentStep`**: Records a single `thought`, `action` (tool name), `action_input`, and tool `observation`.
-* **`AgentResponse`**: Contains the final `question`, `answer`, full `steps: list[AgentStep]`, `tool_calls_count`, and elapsed `took_ms`.
-
----
-
-## 2. Abstract Ports (`polyrag.core.interfaces`)
-
-PolyRAG uses the Ports & Adapters pattern. Custom infrastructure can be introduced by subclassing any of these interfaces:
-
-### `BaseChunker`
-```python
-class BaseChunker(ABC):
-    @abstractmethod
-    def chunk(self, text: str) -> list[str]:
-        """Split input document text into discrete chunks."""
-        raise NotImplementedError
-```
-
-### `BaseEmbeddingModel`
-```python
-class BaseEmbeddingModel(ABC):
-    @property
-    @abstractmethod
-    def dim(self) -> int:
-        """Return dimensionality of the embedding vector."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def embed_text(self, text: str) -> list[float]:
-        """Generate embedding vector for a single text."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def embed_batch(self, texts: list[str], batch_size: int = 128) -> list[list[float]]:
-        """Generate normalized embeddings for multiple texts."""
-        raise NotImplementedError
+┌─────────────────────────────────┐
+│     LangChain Core Primitive    │  (VectorStore, Embeddings, TextSplitter, BaseChatModel)
+└────────────────┬────────────────┘
+                 │ (Inherits)
+┌────────────────▼────────────────┐
+│      PolyRAG Abstract Port      │  (BaseVectorStore, BaseEmbeddingModel, BaseChunker, BaseLLMClient)
+└────────────────┬────────────────┘
+                 │ (Implements)
+┌────────────────▼────────────────┐
+│ PolyRAG & Third-Party Adapters  │  (InMemoryVectorStore, MilvusVectorStore, ChromaVectorStore, etc.)
+└─────────────────────────────────┘
 ```
 
 ### `BaseVectorStore`
+Subclasses `langchain_core.vectorstores.VectorStore`.
+
 ```python
-class BaseVectorStore(ABC):
-    @abstractmethod
-    def clear(self) -> None:
-        """Clear all records from the vector store."""
-        raise NotImplementedError
+from langchain_core.vectorstores import VectorStore
+from polyrag.core.interfaces import BaseVectorStore
 
-    @abstractmethod
-    def add_documents(
-        self,
-        vectors: list[list[float]],
-        documents: list[dict[str, Any]],
-        batch_size: int = 5000,
-    ) -> None:
-        """Add pre-computed vectors and document records."""
-        raise NotImplementedError
+class BaseVectorStore(VectorStore, ABC):
+    # LangChain Standard Methods
+    def similarity_search(self, query: str, k: int = 4, **kwargs: Any) -> list[Document]: ...
+    def similarity_search_by_vector(self, embedding: list[float], k: int = 4, **kwargs: Any) -> list[Document]: ...
+    def similarity_search_with_score(self, query: str, k: int = 4, **kwargs: Any) -> list[tuple[Document, float]]: ...
+    def similarity_search_with_score_by_vector(self, embedding: list[float], k: int = 4, **kwargs: Any) -> list[tuple[Document, float]]: ...
 
+    # PolyRAG High-Performance Ports
     @abstractmethod
-    def search(
-        self,
-        query_vector: list[float],
-        top_k: int = 5,
-    ) -> list[dict[str, Any]]:
-        """Perform nearest-neighbor search for a query embedding vector."""
-        raise NotImplementedError
+    def add_documents(self, documents: list[Any] | None = None, vectors: list[list[float]] | None = None, **kwargs: Any) -> list[str]: ...
+    @abstractmethod
+    def search(self, query_vector: list[float] | None = None, query: str = "", top_k: int = 5, **kwargs: Any) -> list[dict[str, Any]]: ...
+    @abstractmethod
+    def count(self) -> int: ...
+    @abstractmethod
+    def peek(self, limit: int = 5) -> Any: ...
+    @abstractmethod
+    def clear(self) -> None: ...
+```
 
-    @abstractmethod
-    def count(self) -> int:
-        """Return total document count in the vector collection."""
-        raise NotImplementedError
+### `BaseEmbeddingModel`
+Subclasses `langchain_core.embeddings.Embeddings`.
 
-    @abstractmethod
-    def peek(self, limit: int = 5) -> Any:
-        """Preview sample records from the vector store."""
-        raise NotImplementedError
+```python
+from langchain_core.embeddings import Embeddings
+from polyrag.core.interfaces import BaseEmbeddingModel
+
+class BaseEmbeddingModel(Embeddings, ABC):
+    # LangChain standard methods
+    def embed_documents(self, texts: list[str]) -> list[list[float]]: ...
+    def embed_query(self, text: str) -> list[float]: ...
+
+    # PolyRAG ports
+    def embed_text(self, text: str) -> list[float]: ...
+    def embed_batch(self, texts: list[str], batch_size: int = 128) -> list[list[float]]: ...
+    @property
+    def dim(self) -> int: ...
+```
+
+### `BaseChunker`
+Subclasses `langchain_text_splitters.TextSplitter`.
+
+```python
+from langchain_text_splitters import TextSplitter
+from polyrag.core.interfaces import BaseChunker
+
+class BaseChunker(TextSplitter, ABC):
+    # LangChain standard
+    def split_text(self, text: str) -> list[str]: ...
+
+    # PolyRAG port
+    def chunk(self, text: str) -> list[str]: ...
 ```
 
 ### `BaseLLMClient`
+Provides standard LLM generation and conforms to modern LangChain Runnable invocation (`invoke`, `stream`, `bind_tools`).
+
 ```python
 class BaseLLMClient(ABC):
     @property
     @abstractmethod
-    def model_name(self) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
-    def complete(self, prompt: str, **kwargs: Any) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
-    def complete_json(self, prompt: str, **kwargs: Any) -> dict[str, Any]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str:
-        raise NotImplementedError
+    def model_name(self) -> str: ...
+    def complete(self, prompt: str, **kwargs: Any) -> str: ...
+    def complete_json(self, prompt: str, **kwargs: Any) -> dict[str, Any]: ...
+    def chat(self, messages: list[dict[str, str]], **kwargs: Any) -> str: ...
+    def invoke(self, input: Any, **kwargs: Any) -> AIMessage: ...
+    def stream(self, input: Any, **kwargs: Any) -> Any: ...
+    def bind_tools(self, tools: list[Any], **kwargs: Any) -> Any: ...
 ```
 
 ---
 
 ## 3. Exceptions (`polyrag.exceptions`)
 
-All framework exceptions derive from `PolyRAGError`:
+All framework exceptions derive from `RAGException`:
 
-* `ConfigurationError`: Raised when mandatory settings (e.g. API keys or directories) are missing.
-* `RetrievalError`: Raised when vector store queries fail.
-* `LLMGenerationError`: Raised when the LLM returns API errors or fails to generate text.
-* `InvalidJSONError`: Raised when structured JSON generation cannot be parsed.
+* `ConfigurationError`: Raised when mandatory settings (e.g. API keys or unregistered DI interfaces) are missing.
+* `IngestionError`: Raised during document reading or chunking errors.
+* `RetrievalError`: Raised when vector store queries or searches fail.
+* `LLMGenerationError`: Raised when model completion or chat calls fail.

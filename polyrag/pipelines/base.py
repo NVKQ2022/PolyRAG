@@ -1,44 +1,44 @@
-"""Base class for all RAG pipelines."""
+"""Base class for all RAG pipelines built on LangChain primitives."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
+from langchain_core.documents import Document as LCDocument
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
+from langchain_core.vectorstores import VectorStore
+from langchain_text_splitters import TextSplitter
+
 from polyrag.chunkers import resolve_chunker
-from polyrag.core.interfaces import (
-    BaseChunker,
-    BaseEmbeddingModel,
-    BaseLLMClient,
-    BaseVectorStore,
-)
-from polyrag.core.models import AgentResponse, RAGResponse
+from polyrag.core.models import AgentResponse, Document, RAGResponse
 from polyrag.embeddings import resolve_embedding_model
 from polyrag.llms import resolve_llm_client
+from polyrag.vector_stores import resolve_vector_store
 
 
 class BaseRAG(ABC):
     """
-    Abstract Base Class for all RAG architectures.
+    Abstract Base Class for all RAG architectures built on LangChain.
 
-    Encapsulates core document ingestion, chunking, embedding generation,
-    vector storage, and similarity retrieval primitives.
+    Encapsulates document ingestion, chunking via TextSplitter, vector storage
+    via VectorStore, and similarity retrieval.
     """
 
     def __init__(
         self,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
-        vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | str | Any | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding: BaseEmbeddingModel | str | Any | None = None,
-        chat_model: BaseLLMClient | str | Any | None = None,
-        llm: BaseLLMClient | str | Any | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
+        vector_store: VectorStore | None = None,
+        llm_client: BaseChatModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding: Embeddings | str | Any | None = None,
+        chat_model: BaseChatModel | str | Any | None = None,
+        llm: BaseChatModel | str | Any | None = None,
     ) -> None:
-        from polyrag.vector_stores.memory import InMemoryVectorStore
-
-        self.embedding_model = resolve_embedding_model(embedding if embedding is not None else embedding_model)
-        self.vector_store = vector_store if vector_store is not None else InMemoryVectorStore()
+        target_emb = embedding if embedding is not None else embedding_model
+        self.embedding_model = resolve_embedding_model(target_emb)
+        self.vector_store = resolve_vector_store(vector_store, embedding=self.embedding_model)
 
         target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
         self.llm_client = resolve_llm_client(target_llm) if target_llm is not None else None
@@ -50,15 +50,21 @@ class BaseRAG(ABC):
         text: str,
         source: str = "document",
         metadata: dict[str, Any] | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Chunk, embed, and store document text into the vector database."""
-        if not text.strip():
+        if not text or not text.strip():
             return []
 
         active_chunker = resolve_chunker(chunker) if chunker is not None else self.chunker
-        chunks = active_chunker.chunk(text)
+        if hasattr(active_chunker, "split_text"):
+            chunks = active_chunker.split_text(text)
+        elif hasattr(active_chunker, "chunk"):
+            chunks = active_chunker.chunk(text)
+        else:
+            chunks = [text]
+
         if not chunks:
             return []
 
@@ -67,27 +73,51 @@ class BaseRAG(ABC):
             if embedding_model is not None
             else self.embedding_model
         )
-        vectors = active_embedding.embed_batch(chunks)
-        documents = []
+
+        if hasattr(active_embedding, "embed_documents"):
+            vectors = active_embedding.embed_documents(chunks)
+        elif hasattr(active_embedding, "embed_batch"):
+            vectors = active_embedding.embed_batch(chunks)
+        elif hasattr(active_embedding, "embed_text"):
+            vectors = [active_embedding.embed_text(c) for c in chunks]
+        else:
+            vectors = [[0.0] * 384 for _ in chunks]
+
+        lc_docs: list[Document] = []
+        doc_dicts: list[dict[str, Any]] = []
         for cid, chunk_text in enumerate(chunks):
-            doc = {
-                "text": chunk_text,
+            doc_meta = {
                 "source": source,
                 "chunk_id": cid,
+                **(metadata or {}),
             }
-            if metadata:
-                doc.update(metadata)
-            documents.append(doc)
+            lc_docs.append(Document(page_content=chunk_text, metadata=doc_meta))
+            doc_dicts.append({
+                "text": chunk_text,
+                "page_content": chunk_text,
+                **doc_meta,
+            })
 
-        self.vector_store.add_documents(vectors=vectors, documents=documents)
-        return documents
+        # Add to vector store
+        try:
+            self.vector_store.add_documents(vectors=vectors, documents=doc_dicts)
+        except (TypeError, AttributeError):
+            try:
+                self.vector_store.add_documents(lc_docs)
+            except Exception:
+                self.vector_store.add_texts(
+                    texts=[d["text"] for d in doc_dicts],
+                    metadatas=doc_dicts,
+                )
+
+        return doc_dicts
 
     def ingest_file(
         self,
         file_path: Path | str,
         metadata: dict[str, Any] | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Read and ingest a text or markdown file."""
         path = Path(file_path)
@@ -107,8 +137,8 @@ class BaseRAG(ABC):
         dir_path: Path | str,
         glob_pattern: str = "*.txt",
         metadata: dict[str, Any] | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """Recursively scan and ingest all matching files in a directory."""
         path = Path(dir_path)
@@ -131,8 +161,8 @@ class BaseRAG(ABC):
         self,
         documents: Iterable[Any],
         metadata: dict[str, Any] | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
     ) -> list[dict[str, Any]]:
         """
         Ingest an iterable, generator, or list of documents.
@@ -142,15 +172,6 @@ class BaseRAG(ABC):
         - PolyRAG Document models (has 'text' and 'metadata')
         - Dictionaries ({"text": ..., "source": ...})
         - Raw strings
-
-        Args:
-            documents: An iterable of documents (e.g. from loader.lazy_load()).
-            metadata: Optional global metadata to attach to all ingested documents.
-            chunker: Optional per-call chunker instance or strategy name to override instance default.
-            embedding_model: Optional per-call embedding model instance, strategy name, or bridge.
-
-        Returns:
-            List of indexed chunk dictionaries.
         """
         added: list[dict[str, Any]] = []
         for item in documents:
@@ -194,23 +215,10 @@ class BaseRAG(ABC):
         self,
         loader: Any,
         metadata: dict[str, Any] | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
     ) -> list[dict[str, Any]]:
-        """
-        Ingest documents from any LangChain DocumentLoader (e.g. PyPDFLoader, CSVLoader, WebBaseLoader).
-
-        Streams memory-efficiently using loader.lazy_load() when available, falling back to loader.load().
-
-        Args:
-            loader: A LangChain DocumentLoader instance.
-            metadata: Optional metadata to merge into all loaded documents.
-            chunker: Optional chunker instance or strategy name to override instance default.
-            embedding_model: Optional embedding model instance, strategy name, or bridge.
-
-        Returns:
-            List of indexed chunk dictionaries.
-        """
+        """Ingest documents from any LangChain DocumentLoader."""
         if hasattr(loader, "lazy_load"):
             docs = loader.lazy_load()
         elif hasattr(loader, "load"):
@@ -229,17 +237,106 @@ class BaseRAG(ABC):
         self,
         query: str,
         top_k: int = 5,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
-        """Find the top-k most relevant chunks for a query vector."""
+        """Find the top-k most relevant chunks for a query string."""
         active_embedding = (
             resolve_embedding_model(embedding_model)
             if embedding_model is not None
             else self.embedding_model
         )
-        query_vector = active_embedding.embed_text(query)
-        return self.vector_store.search(query_vector=query_vector, top_k=top_k, **kwargs)
+
+        if hasattr(active_embedding, "embed_query"):
+            query_vector = active_embedding.embed_query(query)
+        elif hasattr(active_embedding, "embed_text"):
+            query_vector = active_embedding.embed_text(query)
+        else:
+            query_vector = [0.0] * 384
+
+        # 1. Custom or PolyRAG vector store with search()
+        if hasattr(self.vector_store, "search"):
+            try:
+                return self.vector_store.search(query_vector=query_vector, top_k=top_k, **kwargs)
+            except Exception:
+                pass
+
+        # 2. Native LangChain VectorStore similarity_search_with_score_by_vector
+        if hasattr(self.vector_store, "similarity_search_with_score_by_vector"):
+            try:
+                hits = self.vector_store.similarity_search_with_score_by_vector(query_vector, k=top_k, **kwargs)
+                results: list[dict[str, Any]] = []
+                for hit in hits:
+                    if isinstance(hit, tuple):
+                        doc, score = hit
+                    else:
+                        doc, score = hit, 1.0
+
+                    s_float = float(score)
+                    results.append({
+                        "score": s_float,
+                        "distance": 1.0 - s_float if s_float <= 1.0 else s_float,
+                        "document": {
+                            "text": doc.page_content,
+                            "page_content": doc.page_content,
+                            "source": doc.metadata.get("source", "unknown"),
+                            "chunk_id": doc.metadata.get("chunk_id", ""),
+                            **doc.metadata,
+                        },
+                    })
+                return results
+            except Exception:
+                pass
+
+        # 3. Native LangChain VectorStore similarity_search_with_score
+        if hasattr(self.vector_store, "similarity_search_with_score"):
+            try:
+                hits = self.vector_store.similarity_search_with_score(query, k=top_k, **kwargs)
+                results = []
+                for hit in hits:
+                    if isinstance(hit, tuple):
+                        doc, score = hit
+                    else:
+                        doc, score = hit, 1.0
+
+                    s_float = float(score)
+                    results.append({
+                        "score": s_float,
+                        "distance": 1.0 - s_float if s_float <= 1.0 else s_float,
+                        "document": {
+                            "text": doc.page_content,
+                            "page_content": doc.page_content,
+                            "source": doc.metadata.get("source", "unknown"),
+                            "chunk_id": doc.metadata.get("chunk_id", ""),
+                            **doc.metadata,
+                        },
+                    })
+                return results
+            except Exception:
+                pass
+
+        # 4. Native LangChain VectorStore similarity_search
+        if hasattr(self.vector_store, "similarity_search"):
+            try:
+                hits = self.vector_store.similarity_search(query, k=top_k, **kwargs)
+                results = []
+                for rank, doc in enumerate(hits):
+                    results.append({
+                        "score": 1.0 / (1.0 + rank),
+                        "distance": float(rank),
+                        "document": {
+                            "text": doc.page_content,
+                            "page_content": doc.page_content,
+                            "source": doc.metadata.get("source", "unknown"),
+                            "chunk_id": doc.metadata.get("chunk_id", ""),
+                            **doc.metadata,
+                        },
+                    })
+                return results
+            except Exception:
+                pass
+
+        return []
 
     def format_context(
         self,
@@ -251,7 +348,7 @@ class BaseRAG(ABC):
             document = result.get("document", {})
             source = document.get("source", "unknown")
             chunk_id = document.get("chunk_id", "")
-            text = document.get("text", "")
+            text = document.get("text", document.get("page_content", ""))
             blocks.append(f"Source: {source}#{chunk_id}\n{text}")
         return "\n\n---\n\n".join(blocks)
 

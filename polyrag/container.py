@@ -8,10 +8,14 @@ from typing import Any, TypeVar
 from polyrag.chunkers import resolve_chunker
 from polyrag.chunkers.recursive import RecursiveCharacterChunker
 from polyrag.core.interfaces import (
+    BaseChatModel,
     BaseChunker,
     BaseEmbeddingModel,
     BaseLLMClient,
     BaseVectorStore,
+    Embeddings,
+    TextSplitter,
+    VectorStore,
 )
 from polyrag.embeddings import resolve_embedding_model
 from polyrag.embeddings.sentence_transformers import SentenceTransformerEmbedding
@@ -76,13 +80,58 @@ class Container:
             factory = self._factories[interface]
             return factory(self) if _accepts_arg(factory) else factory()
 
+        # 3. Check alias mapping for LangChain primitives
+        alias = None
+        if interface is BaseVectorStore:
+            alias = VectorStore
+        elif interface is VectorStore:
+            alias = BaseVectorStore
+        elif interface is BaseEmbeddingModel:
+            alias = Embeddings
+        elif interface is Embeddings:
+            alias = BaseEmbeddingModel
+        elif interface is BaseLLMClient:
+            alias = BaseChatModel
+        elif interface is BaseChatModel:
+            alias = BaseLLMClient
+        elif interface is BaseChunker:
+            alias = TextSplitter
+        elif interface is TextSplitter:
+            alias = BaseChunker
+
+        if alias:
+            if alias in self._singletons:
+                return self._singletons[alias]
+            if alias in self._factories:
+                factory = self._factories[alias]
+                return factory(self) if _accepts_arg(factory) else factory()
+
         raise ConfigurationError(
             f"No implementation registered for interface '{interface.__name__}' in Container."
         )
 
     def is_registered(self, interface: type) -> bool:
         """Check if an interface has a registered instance or factory."""
-        return interface in self._singletons or interface in self._factories
+        if interface in self._singletons or interface in self._factories:
+            return True
+        alias = None
+        if interface is BaseVectorStore:
+            alias = VectorStore
+        elif interface is VectorStore:
+            alias = BaseVectorStore
+        elif interface is BaseEmbeddingModel:
+            alias = Embeddings
+        elif interface is Embeddings:
+            alias = BaseEmbeddingModel
+        elif interface is BaseLLMClient:
+            alias = BaseChatModel
+        elif interface is BaseChatModel:
+            alias = BaseLLMClient
+        elif interface is BaseChunker:
+            alias = TextSplitter
+        elif interface is TextSplitter:
+            alias = BaseChunker
+        return bool(alias and (alias in self._singletons or alias in self._factories))
 
     @property
     def chunker(self) -> BaseChunker:
@@ -128,10 +177,9 @@ class Container:
         container = cls()
 
         target_llm = chat_model if chat_model is not None else (llm if llm is not None else llm_client)
-        # Defaults
         chunker_instance = resolve_chunker(chunker)
         embedding_instance = resolve_embedding_model(embedding if embedding is not None else embedding_model)
-        vector_store_instance = vector_store or InMemoryVectorStore()
+        vector_store_instance = vector_store or InMemoryVectorStore(embedding=embedding_instance)
         llm_instance = resolve_llm_client(target_llm)
 
         container.register_instance(BaseChunker, chunker_instance)

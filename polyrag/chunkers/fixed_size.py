@@ -1,5 +1,6 @@
-"""Fixed size overlapping character chunker."""
+"""Fixed size overlapping character chunker built on langchain_text_splitters."""
 
+from typing import Any
 from polyrag.core.interfaces import BaseChunker
 
 
@@ -11,6 +12,7 @@ class FixedSizeChunker(BaseChunker):
         chunk_size: int = 550,
         chunk_overlap: int = 35,
         drop_empty: bool = True,
+        **kwargs: Any,
     ) -> None:
         if chunk_size <= 0:
             raise ValueError("chunk_size must be greater than 0")
@@ -19,6 +21,7 @@ class FixedSizeChunker(BaseChunker):
         if chunk_overlap >= chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
 
+        super().__init__(chunk_size=chunk_size, chunk_overlap=chunk_overlap, **kwargs)
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.drop_empty = drop_empty
@@ -38,3 +41,9 @@ class FixedSizeChunker(BaseChunker):
                 break
 
         return chunks
+
+    def split_text(self, text: str) -> list[str]:
+        return self.chunk(text)
+
+
+__all__ = ["FixedSizeChunker"]

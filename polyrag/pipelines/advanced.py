@@ -3,14 +3,27 @@
 import time
 from typing import Any
 
-from polyrag.core.interfaces import (
-    BaseChunker,
-    BaseEmbeddingModel,
-    BaseLLMClient,
-    BaseVectorStore,
-)
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
+from langchain_core.vectorstores import VectorStore
+from langchain_text_splitters import TextSplitter
+
 from polyrag.core.models import RAGResponse
 from polyrag.pipelines.base import BaseRAG
+
+
+def _generate_text(llm: Any, prompt: str, **kwargs: Any) -> str:
+    """Generate completion text from any LangChain ChatModel, LLM, or callable."""
+    if hasattr(llm, "invoke"):
+        res = llm.invoke(prompt, **kwargs)
+        if hasattr(res, "content"):
+            return str(res.content).strip()
+        return str(res).strip()
+    if hasattr(llm, "complete"):
+        return str(llm.complete(prompt, **kwargs)).strip()
+    if callable(llm):
+        return str(llm(prompt)).strip()
+    return str(llm).strip()
 
 
 class AdvancedRAG(BaseRAG):
@@ -24,17 +37,17 @@ class AdvancedRAG(BaseRAG):
 
     def __init__(
         self,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
-        vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | str | Any | None = None,
-        chunker: BaseChunker | str | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
+        vector_store: VectorStore | None = None,
+        llm_client: BaseChatModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
         top_k: int = 5,
         num_expanded_queries: int = 3,
         min_relevance_score: float = 0.0,
         verbose: bool = False,
-        embedding: BaseEmbeddingModel | str | Any | None = None,
-        chat_model: BaseLLMClient | str | Any | None = None,
-        llm: BaseLLMClient | str | Any | None = None,
+        embedding: Embeddings | str | Any | None = None,
+        chat_model: BaseChatModel | str | Any | None = None,
+        llm: BaseChatModel | str | Any | None = None,
     ) -> None:
         super().__init__(
             embedding_model=embedding if embedding is not None else embedding_model,
@@ -61,7 +74,7 @@ Generate {self.num_expanded_queries} diverse search queries that capture differe
 Return strictly one query per line without numbering, bullets, or extra commentary."""
 
         try:
-            output = self.llm_client.complete(prompt)
+            output = _generate_text(self.llm_client, prompt)
             lines = [line.strip().lstrip("0123456789.-*• ") for line in output.split("\n") if line.strip()]
             queries = [q for q in lines if q]
             if question not in queries:
@@ -92,10 +105,8 @@ Return strictly one query per line without numbering, bullets, or extra commenta
                 if key not in doc_map:
                     doc_map[key] = item
 
-                # RRF Formula: sum(1 / (k + rank))
                 rrf_scores[key] = rrf_scores.get(key, 0.0) + (1.0 / (rrf_k + rank))
 
-        # Sort descending by fused score
         sorted_keys = sorted(rrf_scores.keys(), key=lambda k: rrf_scores[k], reverse=True)
 
         fused_results: list[dict[str, Any]] = []
@@ -139,7 +150,6 @@ Return strictly one query per line without numbering, bullets, or extra commenta
         if len(search_runs) > 1 and re_rank:
             fused_results = self.reciprocal_rank_fusion(search_runs)
         else:
-            # Flatten & deduplicate
             seen = set()
             fused_results = []
             for run in search_runs:
@@ -150,7 +160,6 @@ Return strictly one query per line without numbering, bullets, or extra commenta
                         seen.add(key)
                         fused_results.append(item)
 
-        # Filter by minimum relevance score if configured
         if self.min_relevance_score > 0.0:
             fused_results = [r for r in fused_results if r.get("score", 0.0) >= self.min_relevance_score]
 
@@ -180,7 +189,7 @@ Return strictly one query per line without numbering, bullets, or extra commenta
             "Answer with citations:"
         )
 
-        answer = self.llm_client.complete(prompt)
+        answer = _generate_text(self.llm_client, prompt, **kwargs)
         llm_calls += 1
         took_ms = int((time.time() - start_time) * 1000)
 

@@ -1,10 +1,13 @@
-"""Local Sentence-Transformers embedding implementation."""
+"""Local Sentence-Transformers embedding implementation built on langchain_core.embeddings."""
 
-from polyrag.core.interfaces import BaseEmbeddingModel
+from langchain_core.embeddings import Embeddings
 
 
-class SentenceTransformerEmbedding(BaseEmbeddingModel):
-    """Local Sentence Transformers / HuggingFace embedding adapter."""
+class SentenceTransformerEmbedding(Embeddings):
+    """
+    Sentence Transformers / HuggingFace embedding adapter conforming to
+    LangChain's Embeddings interface.
+    """
 
     def __init__(
         self,
@@ -34,21 +37,38 @@ class SentenceTransformerEmbedding(BaseEmbeddingModel):
     def dim(self) -> int:
         return self._dim
 
-    def embed_text(self, text: str) -> list[float]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """LangChain standard method: embed multiple documents."""
+        if not texts:
+            return []
+        embeddings = self.model.encode(
+            texts,
+            batch_size=128,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+        )
+        return embeddings.tolist()
+
+    def embed_query(self, text: str) -> list[float]:
+        """LangChain standard method: embed a single query text."""
         embedding = self.model.encode(
             text,
             normalize_embeddings=True,
         )
         return embedding.tolist()
 
+    def embed_text(self, text: str) -> list[float]:
+        """PolyRAG backward compatibility alias."""
+        return self.embed_query(text)
+
     def embed_batch(
         self,
         texts: list[str],
         batch_size: int = 128,
     ) -> list[list[float]]:
+        """PolyRAG backward compatibility alias."""
         if not texts:
             return []
-
         embeddings = self.model.encode(
             texts,
             batch_size=batch_size,
@@ -56,3 +76,6 @@ class SentenceTransformerEmbedding(BaseEmbeddingModel):
             show_progress_bar=False,
         )
         return embeddings.tolist()
+
+
+__all__ = ["SentenceTransformerEmbedding"]

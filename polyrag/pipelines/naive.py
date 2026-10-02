@@ -1,16 +1,29 @@
-"""Standard Retrieve-then-Read Naive RAG pipeline."""
+"""Standard Retrieve-then-Read Naive RAG pipeline built on LangChain primitives."""
 
 import time
 from typing import Any
 
-from polyrag.core.interfaces import (
-    BaseChunker,
-    BaseEmbeddingModel,
-    BaseLLMClient,
-    BaseVectorStore,
-)
+from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
+from langchain_core.vectorstores import VectorStore
+from langchain_text_splitters import TextSplitter
+
 from polyrag.core.models import RAGResponse
 from polyrag.pipelines.base import BaseRAG
+
+
+def _generate_text(llm: Any, prompt: str, **kwargs: Any) -> str:
+    """Generate completion text from any LangChain ChatModel, LLM, or callable."""
+    if hasattr(llm, "invoke"):
+        res = llm.invoke(prompt, **kwargs)
+        if hasattr(res, "content"):
+            return str(res.content).strip()
+        return str(res).strip()
+    if hasattr(llm, "complete"):
+        return str(llm.complete(prompt, **kwargs)).strip()
+    if callable(llm):
+        return str(llm(prompt)).strip()
+    return str(llm).strip()
 
 
 class NaiveRAG(BaseRAG):
@@ -23,13 +36,13 @@ class NaiveRAG(BaseRAG):
 
     def __init__(
         self,
-        embedding_model: BaseEmbeddingModel | str | Any | None = None,
-        vector_store: BaseVectorStore | None = None,
-        llm_client: BaseLLMClient | str | Any | None = None,
-        chunker: BaseChunker | str | None = None,
-        embedding: BaseEmbeddingModel | str | Any | None = None,
-        chat_model: BaseLLMClient | str | Any | None = None,
-        llm: BaseLLMClient | str | Any | None = None,
+        embedding_model: Embeddings | str | Any | None = None,
+        vector_store: VectorStore | None = None,
+        llm_client: BaseChatModel | str | Any | None = None,
+        chunker: TextSplitter | str | None = None,
+        embedding: Embeddings | str | Any | None = None,
+        chat_model: BaseChatModel | str | Any | None = None,
+        llm: BaseChatModel | str | Any | None = None,
     ) -> None:
         super().__init__(
             embedding_model=embedding if embedding is not None else embedding_model,
@@ -52,7 +65,6 @@ class NaiveRAG(BaseRAG):
         context = self.format_context(results)
 
         if self.llm_client is None:
-            # Return context retrieval without generation if no LLM configured
             took_ms = int((time.time() - start_time) * 1000)
             return RAGResponse(
                 question=question,
@@ -73,9 +85,8 @@ class NaiveRAG(BaseRAG):
             "Answer with citations where possible:"
         )
 
-        answer = self.llm_client.complete(prompt)
+        answer = _generate_text(self.llm_client, prompt, **kwargs)
         took_ms = int((time.time() - start_time) * 1000)
-
         sources = [result.get("document", {}) for result in results]
 
         return RAGResponse(

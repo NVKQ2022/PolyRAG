@@ -90,7 +90,7 @@ class RAGService(PolyRAG):
         elif persist_dir:
             vdb = ChromaVectorStore(persist_path=persist_dir, collection_name=collection_name)
         else:
-            vdb = InMemoryVectorStore()
+            vdb = InMemoryVectorStore(embedding=emb)
 
         return cls(
             client=llm,
@@ -121,9 +121,9 @@ class RAGService(PolyRAG):
             if persist_dir and Path(persist_dir).exists():
                 vdb = ChromaVectorStore(persist_path=persist_dir, collection_name=collection_name)
             else:
-                vdb = InMemoryVectorStore()
+                vdb = InMemoryVectorStore(embedding=emb)
         except Exception:
-            vdb = InMemoryVectorStore()
+            vdb = InMemoryVectorStore(embedding=emb)
 
         return cls(
             client=OpenAILLM(model_name=model_name),

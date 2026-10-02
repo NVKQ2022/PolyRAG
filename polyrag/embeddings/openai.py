@@ -1,11 +1,13 @@
-"""OpenAI Embedding implementation of BaseEmbeddingModel."""
+"""OpenAI Embedding implementation built on langchain_core.embeddings."""
 
 from typing import Any
-from polyrag.core.interfaces import BaseEmbeddingModel
+from langchain_core.embeddings import Embeddings
 
 
-class OpenAIEmbedding(BaseEmbeddingModel):
-    """OpenAI and OpenAI-compatible embedding adapter."""
+class OpenAIEmbedding(Embeddings):
+    """
+    OpenAI embedding adapter conforming to LangChain's Embeddings interface.
+    """
 
     MODEL_DIMENSIONS = {
         "text-embedding-3-small": 1536,
@@ -38,23 +40,11 @@ class OpenAIEmbedding(BaseEmbeddingModel):
     def dim(self) -> int:
         return self._dim
 
-    def embed_text(self, text: str) -> list[float]:
-        response = self.client.embeddings.create(
-            model=self.model_name,
-            input=text,
-        )
-        return response.data[0].embedding
-
-    def embed_batch(
-        self,
-        texts: list[str],
-        batch_size: int = 128,
-    ) -> list[list[float]]:
-        if batch_size <= 0:
-            raise ValueError("batch_size must be greater than 0")
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """LangChain standard method: embed multiple documents."""
         if not texts:
             return []
-
+        batch_size = 128
         embeddings: list[list[float]] = []
         for start in range(0, len(texts), batch_size):
             batch = texts[start : start + batch_size]
@@ -64,5 +54,38 @@ class OpenAIEmbedding(BaseEmbeddingModel):
             )
             batch_embeddings = sorted(response.data, key=lambda item: item.index)
             embeddings.extend(item.embedding for item in batch_embeddings)
-
         return embeddings
+
+    def embed_query(self, text: str) -> list[float]:
+        """LangChain standard method: embed a single query text."""
+        response = self.client.embeddings.create(
+            model=self.model_name,
+            input=text,
+        )
+        return response.data[0].embedding
+
+    def embed_text(self, text: str) -> list[float]:
+        """PolyRAG backward compatibility alias."""
+        return self.embed_query(text)
+
+    def embed_batch(
+        self,
+        texts: list[str],
+        batch_size: int = 128,
+    ) -> list[list[float]]:
+        """PolyRAG backward compatibility alias."""
+        if not texts:
+            return []
+        embeddings: list[list[float]] = []
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start : start + batch_size]
+            response = self.client.embeddings.create(
+                model=self.model_name,
+                input=batch,
+            )
+            batch_embeddings = sorted(response.data, key=lambda item: item.index)
+            embeddings.extend(item.embedding for item in batch_embeddings)
+        return embeddings
+
+
+__all__ = ["OpenAIEmbedding"]
