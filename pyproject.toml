@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "polyrag"
-version = "0.1.4"
+version = "0.1.5"
 description = "A modular, multi-paradigm Retrieval-Augmented Generation (RAG) framework supporting Vector, Agentic, and Graph RAG architectures."
 readme = "README.md"
 requires-python = ">=3.10"

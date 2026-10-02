@@ -63,7 +63,7 @@ from polyrag.vector_stores.milvus import (
     MilvusVectorStore,
 )
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 __all__ = [
     # Application Context & Setup Factory
